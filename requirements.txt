@@ -2,4 +2,4 @@ cairo-lang>=0.9.1
 cairo-nile>=0.6.0
 pytest>=7.1.2
 pytest-asyncio>=0.19.0
-openzeppelin-cairo-contracts==0.2.1
+openzeppelin-cairo-contracts==0.2.0
