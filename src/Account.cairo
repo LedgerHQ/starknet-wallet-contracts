@@ -10,7 +10,7 @@ from starkware.starknet.common.syscalls import (
 )
 from starkware.cairo.common.bool import TRUE, FALSE
 
-from openzeppelin.introspection.erc165 import ERC165
+from openzeppelin.introspection.ERC165 import ERC165
 from openzeppelin.utils.constants import IACCOUNT_ID
 
 @contract_interface
