@@ -64,6 +64,10 @@ func validate{
     
     # get the tx info
     let (tx_info) = get_tx_info()
+    # make sure no call is to the account during a multicall
+    if call_array_len != 1:
+        assert_no_self_call(tx_info.account_contract_address, call_array_len, call_array)
+    end
 
     is_valid_signature(tx_info.transaction_hash, tx_info.signature_len, tx_info.signature)
     return()
@@ -177,6 +181,20 @@ func assert_initialized{
     end
     return()
 end
+
+func assert_no_self_call(
+        self: felt,
+        call_array_len: felt,
+        call_array: AccountCallArray*
+    ):
+    if call_array_len == 0:
+        return ()
+    end
+    assert_not_zero(call_array[0].to - self)
+    assert_no_self_call(self, call_array_len - 1, call_array + AccountCallArray.SIZE)
+    return()
+end
+
 
 func assert_only_self{
         syscall_ptr: felt*

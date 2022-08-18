@@ -90,7 +90,7 @@ async def test_execute(account_factory):
 
 @pytest.mark.asyncio
 async def test_multicall(account_factory):
-    _, account, _, initializable_1, initializable_2, _ = account_factory
+    ECDSA_plugin_class, account, _, initializable_1, initializable_2, _ = account_factory
 
     execution_info = await initializable_1.initialized().call()
     assert execution_info.result == (0,)
@@ -109,6 +109,20 @@ async def test_multicall(account_factory):
     assert execution_info.result == (1,)
     execution_info = await initializable_2.initialized().call()
     assert execution_info.result == (1,)
+
+    # Should revert if trying to do call the plugins in a multicall
+    await assert_revert(
+        signer.send_transactions(
+            account,
+            [
+                (initializable_1.contract_address, 'initialize', []),
+                (initializable_2.contract_address, 'initialize', []),
+                (account.contract_address, 'execute_on_plugin', 
+                    [ECDSA_plugin_class, get_selector_from_name('set_public_key'), 1 ,other.public_key]
+                )
+            ]
+        )
+    )
     
 
 @ pytest.mark.asyncio
