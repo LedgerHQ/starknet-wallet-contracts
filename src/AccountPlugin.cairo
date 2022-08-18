@@ -384,6 +384,32 @@ func is_valid_signature{
     end
 
 @view
+func read_on_plugin{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (
+        plugin: felt,
+        selector: felt,
+        calldata_len: felt,
+        calldata: felt*
+    ) -> (
+        retdata_len : felt, 
+        retdata : felt*
+    ):
+    # only valid plugin
+    let (is_plugin) = Account_plugins.read(plugin)
+    assert_not_zero(is_plugin)
+
+    let (retdata_len, retdata) = library_call(
+        class_hash=plugin,
+        function_selector=selector,
+        calldata_size=calldata_len,
+        calldata=calldata)
+    return (retdata_len=retdata_len, retdata=retdata)
+end
+
+@view
 func get_nonce{
         syscall_ptr: felt*, 
         pedersen_ptr: HashBuiltin*,
