@@ -2,6 +2,7 @@ import pytest
 from starkware.starknet.testing.starknet import Starknet
 from utils.signers import MockSigner
 from utils.utils import assert_revert, get_contract_class, cached_contract, TRUE
+from starkware.starknet.compiler.compile import get_selector_from_name
 
 
 signer = MockSigner(123456789987654321)
@@ -145,4 +146,21 @@ async def test_account_takeover_with_reentrant_call(account_factory):
     await assert_revert(
         signer.send_transaction(account, attacker.contract_address, 'account_takeover', []),
         reverted_with="Account: no reentrant call"
+    )
+
+@pytest.mark.asyncio
+async def test_public_key_setter(account_factory):
+    ECDSA_plugin_class, account, *_ = account_factory
+
+    execution_info = await account.read_on_plugin(ECDSA_plugin_class, get_selector_from_name('get_signer'), []).call()
+    assert execution_info.result.retdata == [signer.public_key]
+
+    # set new pubkey
+    await signer.send_transactions(account, [(account.contract_address, 'execute_on_plugin', [ECDSA_plugin_class, get_selector_from_name('set_public_key'), 1 ,other.public_key])])
+
+    execution_info = await account.read_on_plugin(ECDSA_plugin_class, get_selector_from_name('get_signer'), []).call()
+    assert execution_info.result.retdata == [other.public_key]
+
+    await assert_revert(
+        signer.send_transactions(account, [(account.contract_address, 'execute_on_plugin', [ECDSA_plugin_class, get_selector_from_name('set_public_key'), 1 ,other.public_key])])
     )

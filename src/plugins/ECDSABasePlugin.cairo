@@ -65,11 +65,6 @@ func validate{
     # get the tx info
     let (tx_info) = get_tx_info()
 
-    # TODO test no self call
-    # if call_array_len == 1:
-    #     # make sure no call is to the account
-    #     assert_no_self_call(tx_info.account_contract_address, call_array_len, call_array)
-    # end
     is_valid_signature(tx_info.transaction_hash, tx_info.signature_len, tx_info.signature)
     return()
 end
@@ -104,6 +99,23 @@ func initialize{
     # emit event
     let (self) = get_contract_address()
     account_created.emit(account=self, key=signer)
+    return ()
+end
+
+####################
+# SETTERS
+####################
+
+@external
+func set_public_key{
+        syscall_ptr : felt*,
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }(
+        new_public_key: felt
+    ):
+    assert_only_self()
+    Account_public_key.write(new_public_key)
     return ()
 end
 
@@ -174,18 +186,5 @@ func assert_only_self{
     with_attr error_message("must be called via execute"):
         assert self = caller_address
     end
-    return()
-end
-
-func assert_no_self_call(
-        self: felt,
-        call_array_len: felt,
-        call_array: AccountCallArray*
-    ):
-    if call_array_len == 0:
-        return ()
-    end
-    assert_not_zero(call_array[0].to - self)
-    assert_no_self_call(self, call_array_len - 1, call_array + AccountCallArray.SIZE)
     return()
 end
