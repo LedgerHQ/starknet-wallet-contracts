@@ -21,7 +21,7 @@ def contract_classes():
     return account_cls, init_cls, attacker_cls, ECDSA_plugin_cls
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 async def account_init(contract_classes):
     account_cls, init_cls, attacker_cls, ECDSA_plugin_cls = contract_classes
     starknet = await Starknet.empty()

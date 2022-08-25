@@ -48,7 +48,7 @@ async def account_init(contract_classes):
     return starknet.state, account1, account2, initializable1, initializable2, attacker
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def account_factory(contract_classes, account_init):
     account_cls, init_cls, attacker_cls = contract_classes
     state, account1, account2, initializable1, initializable2, attacker = account_init
