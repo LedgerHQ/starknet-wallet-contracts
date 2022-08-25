@@ -49,7 +49,7 @@ def contract_classes():
     return account_cls, dapp_cls, session_key_cls, ECDSABasePlugin_cls
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 async def account_init(contract_classes):
     account_cls, dapp_cls, session_key_cls, ECDSABasePlugin_cls = contract_classes
     starknet = await Starknet.empty()
