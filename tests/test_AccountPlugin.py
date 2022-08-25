@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from starkware.starknet.testing.starknet import Starknet
 from utils.signers import MockSigner
 from utils.utils import assert_revert, get_contract_class, cached_contract, TRUE
@@ -10,6 +11,9 @@ other = MockSigner(987654321123456789)
 
 IACCOUNT_ID = 0xf10dbd44
 
+@pytest.fixture(scope='module')
+def event_loop():
+    return asyncio.new_event_loop()
 
 @pytest.fixture(scope='module')
 def contract_classes():
