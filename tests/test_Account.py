@@ -1,14 +1,13 @@
 import pytest
 import asyncio
-from starkware.starknet.testing.starknet import Starknet
-from utils.signers import MockSigner
-from utils.utils import assert_revert, get_contract_class, cached_contract, TRUE
+from utils.signers import MockSigner, get_raw_invoke
+from utils.utils import assert_revert, get_contract_class, cached_contract, TRUE, State, Account
 
 
 signer = MockSigner(123456789987654321)
 other = MockSigner(987654321123456789)
 
-IACCOUNT_ID = 0xf10dbd44
+IACCOUNT_ID = 0xa66bd575
 
 @pytest.fixture(scope='module')
 def event_loop():
@@ -26,7 +25,7 @@ def contract_classes():
 @pytest.fixture(scope='module')
 async def account_init(contract_classes):
     account_cls, init_cls, attacker_cls = contract_classes
-    starknet = await Starknet.empty()
+    starknet = await State.init()
 
     account1 = await starknet.deploy(
         contract_class=account_cls,
@@ -120,26 +119,34 @@ async def test_nonce(account_factory):
     # bump nonce
     await signer.send_transactions(account, [(initializable.contract_address, 'initialized', [])])
 
-    execution_info = await account.get_nonce().call()
-    current_nonce = execution_info.result.res
+    # get nonce
+    hex_args = [(hex(initializable.contract_address), 'initialized', [])]
+    raw_invocation = get_raw_invoke(account, hex_args)
+    current_nonce = await raw_invocation.state.state.get_nonce_at(account.contract_address)
 
     # lower nonce
     await assert_revert(
-        signer.send_transactions(account, [(initializable.contract_address, 'initialize', [])], current_nonce - 1),
-        reverted_with="Account: nonce is invalid"
+        signer.send_transactions(
+            account, [(initializable.contract_address, 'initialize', [])], nonce=current_nonce - 1),
+        reverted_with="Invalid transaction nonce. Expected: {}, got: {}.".format(
+            current_nonce, current_nonce - 1
+        )
     )
 
     # higher nonce
     await assert_revert(
-        signer.send_transactions(account, [(initializable.contract_address, 'initialize', [])], current_nonce + 1),
-        reverted_with="Account: nonce is invalid"
+        signer.send_transactions(account, [(initializable.contract_address, 'initialize', [])], nonce=current_nonce + 1),
+        reverted_with="Invalid transaction nonce. Expected: {}, got: {}.".format(
+            current_nonce, current_nonce + 1
+        )
     )
 
     # right nonce
-    await signer.send_transactions(account, [(initializable.contract_address, 'initialize', [])], current_nonce)
+    await signer.send_transactions(account, [(initializable.contract_address, 'initialize', [])], nonce=current_nonce)
 
     execution_info = await initializable.initialized().call()
     assert execution_info.result == (1,)
+
 
 
 @pytest.mark.asyncio

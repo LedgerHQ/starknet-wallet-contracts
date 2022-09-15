@@ -57,8 +57,8 @@ async def account_init(contract_classes):
     session_key_class = await starknet.declare(contract_class=session_key_cls)
     session_key_class_hash = session_key_class.class_hash
     
-    argent_security_class = await starknet.declare(contract_class=ECDSABasePlugin_cls)
-    argent_security_class_hash = argent_security_class.class_hash
+    base_plugin_class = await starknet.declare(contract_class=ECDSABasePlugin_cls)
+    base_plugin_class_hash = base_plugin_class.class_hash
 
     account = await starknet.deploy(
         contract_class=account_cls,
@@ -73,15 +73,15 @@ async def account_init(contract_classes):
         constructor_calldata=[],
     )
 
-    await account.initialize(argent_security_class_hash, [signer.public_key]).invoke()
+    await account.initialize(base_plugin_class_hash, [signer.public_key]).execute()
 
-    return starknet.state, account, dapp1, dapp2, session_key_class_hash, argent_security_class_hash
+    return starknet.state, account, dapp1, dapp2, session_key_class_hash, base_plugin_class_hash
 
 
 @pytest.fixture
 def account_factory(contract_classes, account_init):
     account_cls, dapp_cls, session_key_cls, ECDSABasePlugin_cls = contract_classes
-    state, account, dapp1, dapp2, session_key_class, argent_security_class_hash = account_init
+    state, account, dapp1, dapp2, session_key_class, base_plugin_class_hash = account_init
     _state = state.copy()
     account = cached_contract(_state, account_cls, account)
     dapp1 = cached_contract(_state, dapp_cls, dapp1)
@@ -142,7 +142,8 @@ async def test_call_dapp_with_session_key(account_factory, get_starknet):
     assert_event_emitted(
         tx_exec_info,
         from_address=account.contract_address,
-        name='transaction_executed'
+        name='transaction_executed',
+        data=[]
     )
     # check it worked
     assert (await dapp1.get_balance().call()).result.res == 47
@@ -163,7 +164,8 @@ async def test_call_dapp_with_session_key(account_factory, get_starknet):
     assert_event_emitted(
         tx_exec_info,
         from_address=account.contract_address,
-        name='session_key_revoked'
+        name='session_key_revoked',
+        data=[session_key.public_key]
     )
     # check the session key is no longer authorised
     await assert_revert(

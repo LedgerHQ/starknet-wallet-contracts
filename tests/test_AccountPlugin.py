@@ -1,15 +1,15 @@
 import pytest
 import asyncio
-from starkware.starknet.testing.starknet import Starknet
 from utils.signers import MockSigner
-from utils.utils import assert_revert, get_contract_class, cached_contract, TRUE
+from utils.utils import assert_revert, get_contract_class, cached_contract, TRUE, State
 from starkware.starknet.compiler.compile import get_selector_from_name
 
 
 signer = MockSigner(123456789987654321)
 other = MockSigner(987654321123456789)
 
-IACCOUNT_ID = 0xf10dbd44
+IACCOUNT_ID = 0xa66bd575
+
 
 @pytest.fixture(scope='module')
 def event_loop():
@@ -28,7 +28,7 @@ def contract_classes():
 @pytest.fixture(scope='module')
 async def account_init(contract_classes):
     account_cls, init_cls, attacker_cls, ECDSA_plugin_cls = contract_classes
-    starknet = await Starknet.empty()
+    starknet = await State.init()
 
     account1 = await starknet.deploy(
         contract_class=account_cls,
@@ -53,8 +53,8 @@ async def account_init(contract_classes):
     ECDSA_plugin_class = await starknet.declare(contract_class=ECDSA_plugin_cls)
     ECDSA_plugin_class_hash = ECDSA_plugin_class.class_hash
 
-    await account1.initialize(ECDSA_plugin_class_hash, [signer.public_key]).invoke()
-    await account2.initialize(ECDSA_plugin_class_hash, [signer.public_key]).invoke()
+    await account1.initialize(ECDSA_plugin_class_hash, [signer.public_key]).execute()
+    await account2.initialize(ECDSA_plugin_class_hash, [signer.public_key]).execute()
     return starknet.state, account1, account2, initializable1, initializable2, attacker, ECDSA_plugin_class_hash
 
 
@@ -127,35 +127,6 @@ async def test_multicall(account_factory):
             ]
         )
     )
-    
-
-@ pytest.mark.asyncio
-async def test_nonce(account_factory):
-    _, account, _, initializable, *_ = account_factory
-
-    # bump nonce
-    await signer.send_transactions(account, [(initializable.contract_address, 'initialized', [])])
-
-    execution_info = await account.get_nonce().call()
-    current_nonce = execution_info.result.res
-
-    # lower nonce
-    await assert_revert(
-        signer.send_transactions(account, [(initializable.contract_address, 'initialize', [])], current_nonce - 1),
-        reverted_with="Account: nonce is invalid"
-    )
-
-    # higher nonce
-    await assert_revert(
-        signer.send_transactions(account, [(initializable.contract_address, 'initialize', [])], current_nonce + 1),
-        reverted_with="Account: nonce is invalid"
-    )
-
-    # right nonce
-    await signer.send_transactions(account, [(initializable.contract_address, 'initialize', [])], current_nonce)
-
-    execution_info = await initializable.initialized().call()
-    assert execution_info.result == (1,)
 
 @pytest.mark.asyncio
 async def test_account_takeover_with_reentrant_call(account_factory):
