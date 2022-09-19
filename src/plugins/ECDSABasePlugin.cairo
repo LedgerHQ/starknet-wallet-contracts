@@ -64,7 +64,7 @@ func validate{
         assert_no_self_call(tx_info.account_contract_address, call_array_len, call_array);
     }
 
-    is_valid_signature(tx_info.transaction_hash, tx_info.signature_len, tx_info.signature);
+    isValidSignature(tx_info.transaction_hash, tx_info.signature_len, tx_info.signature);
     return ();
 }
 
@@ -101,7 +101,7 @@ func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 //###################
 
 @external
-func set_public_key{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func setPublicKey{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     new_public_key: felt
 ) {
     assert_only_self();
@@ -114,7 +114,7 @@ func set_public_key{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
 //###################
 
 @view
-func is_valid_signature{
+func isValidSignature{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
 }(hash: felt, signature_len: felt, signature: felt*) -> (is_valid: felt) {
     let (_public_key) = Account_public_key.read();
@@ -133,7 +133,7 @@ func is_valid_signature{
 }
 
 @view
-func get_signer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+func getSigner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
     signer: felt
 ) {
     let (res) = Account_public_key.read();

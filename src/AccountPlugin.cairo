@@ -37,7 +37,7 @@ namespace IPlugin {
 
     // delegate this call to the default plugin
     // this ocntract does not know its signer or signature scheme
-    func is_valid_signature(hash: felt, signature_len: felt, signature: felt*) -> (is_valid: felt) {
+    func isValidSignature(hash: felt, signature_len: felt, signature: felt*) -> (is_valid: felt) {
     }
 }
 
@@ -178,7 +178,7 @@ func __validate__{
     // make sure the account is initialized
     assert_initialized();
 
-    let (is_plugin, plugin_id, plugin_data_len, plugin_data) = use_plugin(
+    let (is_plugin, plugin_id, plugin_data_len, plugin_data) = usePlugin(
         call_array_len, call_array, calldata_len, calldata
     );
     let (tx_info) = get_tx_info();
@@ -218,14 +218,14 @@ func __validate_declare__{
     alloc_locals;
     // get the tx info
     let (tx_info) = get_tx_info();
-    is_valid_signature(tx_info.transaction_hash, tx_info.signature_len, tx_info.signature);
+    isValidSignature(tx_info.transaction_hash, tx_info.signature_len, tx_info.signature);
     return ();
 }
 
 // ##### PLUGIN #######
 
 @external
-func add_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) {
+func addPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) {
     // only called via execute
     assert_only_self();
 
@@ -238,7 +238,7 @@ func add_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 }
 
 @external
-func remove_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) {
+func removePlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) {
     // only called via execute
     assert_only_self();
     // remove plugin
@@ -247,7 +247,7 @@ func remove_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 }
 
 @external
-func execute_on_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func executeOnPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     plugin: felt, selector: felt, calldata_len: felt, calldata: felt*
 ) {
     // only called via execute
@@ -263,7 +263,7 @@ func execute_on_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 }
 
 @view
-func is_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) -> (
+func isPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) -> (
     success: felt
 ) {
     let (res) = Account_plugins.read(plugin);
@@ -295,7 +295,7 @@ func validate_with_plugin{
     return ();
 }
 
-func use_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func usePlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     call_array_len: felt, call_array: AccountCallArray*, calldata_len: felt, calldata: felt*
 ) -> (is_plugin: felt, plugin_id: felt, plugin_data_len: felt, plugin_data: felt*) {
     alloc_locals;
@@ -322,14 +322,14 @@ func use_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 //###################
 
 @view
-func is_valid_signature{
+func isValidSignature{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
 }(hash: felt, signature_len: felt, signature: felt*) -> (is_valid: felt) {
     alloc_locals;
 
     let (default_plugin) = Account_default_plugin.read();
 
-    IPlugin.library_call_is_valid_signature(
+    IPlugin.library_call_isValidSignature(
         class_hash=default_plugin, hash=hash, signature_len=signature_len, signature=signature
     );
 
@@ -337,7 +337,7 @@ func is_valid_signature{
 }
 
 @view
-func read_on_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func readOnPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     plugin: felt, selector: felt, calldata_len: felt, calldata: felt*
 ) -> (retdata_len: felt, retdata: felt*) {
     // only valid plugin
@@ -359,7 +359,7 @@ func supportsInterface{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 }
 
 @view
-func get_version() -> (version: felt) {
+func getVersion() -> (version: felt) {
     return (version=VERSION);
 }
 

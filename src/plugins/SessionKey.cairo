@@ -24,7 +24,7 @@ from starkware.starknet.common.syscalls import (
 
 @contract_interface
 namespace IAccount {
-    func is_valid_signature(hash: felt, sig_len: felt, sig: felt*) {
+    func isValidSignature(hash: felt, sig_len: felt, sig: felt*) {
     }
 }
 
@@ -72,7 +72,7 @@ func validate{
 
     let (hash) = compute_hash(session_key, session_expires, root);
     with_attr error_message("unauthorised session") {
-        IAccount.is_valid_signature(
+        IAccount.isValidSignature(
             contract_address=tx_info.account_contract_address,
             hash=hash,
             sig_len=plugin_data_len - 2,
