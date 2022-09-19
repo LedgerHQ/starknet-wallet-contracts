@@ -76,7 +76,7 @@ def account_factory(contract_classes, account_init):
 async def test_constructor(account_factory):
     ECDSA_plugin_class, account, *_ = account_factory
     
-    assert (await account.is_plugin(ECDSA_plugin_class).call()).result.success == (1)
+    assert (await account.isPlugin(ECDSA_plugin_class).call()).result.success == (1)
 
 
 @pytest.mark.asyncio
@@ -121,8 +121,8 @@ async def test_multicall(account_factory):
             [
                 (initializable_1.contract_address, 'initialize', []),
                 (initializable_2.contract_address, 'initialize', []),
-                (account.contract_address, 'execute_on_plugin', 
-                    [ECDSA_plugin_class, get_selector_from_name('set_public_key'), 1 ,other.public_key]
+                (account.contract_address, 'executeOnPlugin', 
+                    [ECDSA_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key]
                 )
             ]
         )
@@ -141,15 +141,15 @@ async def test_account_takeover_with_reentrant_call(account_factory):
 async def test_public_key_setter(account_factory):
     ECDSA_plugin_class, account, *_ = account_factory
 
-    execution_info = await account.read_on_plugin(ECDSA_plugin_class, get_selector_from_name('get_signer'), []).call()
+    execution_info = await account.readOnPlugin(ECDSA_plugin_class, get_selector_from_name('getSigner'), []).call()
     assert execution_info.result.retdata == [signer.public_key]
 
     # set new pubkey
-    await signer.send_transactions(account, [(account.contract_address, 'execute_on_plugin', [ECDSA_plugin_class, get_selector_from_name('set_public_key'), 1 ,other.public_key])])
+    await signer.send_transactions(account, [(account.contract_address, 'executeOnPlugin', [ECDSA_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key])])
 
-    execution_info = await account.read_on_plugin(ECDSA_plugin_class, get_selector_from_name('get_signer'), []).call()
+    execution_info = await account.readOnPlugin(ECDSA_plugin_class, get_selector_from_name('getSigner'), []).call()
     assert execution_info.result.retdata == [other.public_key]
 
     await assert_revert(
-        signer.send_transactions(account, [(account.contract_address, 'execute_on_plugin', [ECDSA_plugin_class, get_selector_from_name('set_public_key'), 1 ,other.public_key])])
+        signer.send_transactions(account, [(account.contract_address, 'executeOnPlugin', [ECDSA_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key])])
     )

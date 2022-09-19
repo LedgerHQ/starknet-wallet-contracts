@@ -179,7 +179,7 @@ func __validate__{
 
     // validate transaction
     with_attr error_message("Account: invalid secp256k1 signature") {
-        let (is_valid) = is_valid_signature(
+        let (is_valid) = isValidSignature(
             tx_info.transaction_hash, tx_info.signature_len, tx_info.signature
         );
         assert is_valid = TRUE;
@@ -200,13 +200,13 @@ func __validate_declare__{
     alloc_locals;
     // get the tx info
     let (tx_info) = get_tx_info();
-    is_valid_signature(tx_info.transaction_hash, tx_info.signature_len, tx_info.signature);
+    isValidSignature(tx_info.transaction_hash, tx_info.signature_len, tx_info.signature);
     return ();
 }
 
 
 @external
-func set_public_key{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func setPublicKey{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     new_public_key: felt
 ) {
     assert_only_self();
@@ -217,7 +217,7 @@ func set_public_key{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
 // ##### PLUGIN #######
 
 @external
-func add_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) {
+func addPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) {
     // only called via execute
     assert_only_self();
 
@@ -230,7 +230,7 @@ func add_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 }
 
 @external
-func remove_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) {
+func removePlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) {
     // only called via execute
     assert_only_self();
     // remove plugin
@@ -239,7 +239,7 @@ func remove_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 }
 
 @external
-func execute_on_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func executeOnPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     plugin: felt, selector: felt, calldata_len: felt, calldata: felt*
 ) {
     // only called via execute
@@ -255,7 +255,7 @@ func execute_on_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 }
 
 @view
-func is_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) -> (
+func isPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) -> (
     success: felt
 ) {
     let (res) = Account_plugins.read(plugin);
@@ -288,7 +288,7 @@ func validate_with_plugin{
 //###################
 
 @view
-func is_valid_signature{
+func isValidSignature{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
 }(hash: felt, signature_len: felt, signature: felt*) -> (is_valid: felt) {
     let (_public_key) = Account_public_key.read();
@@ -307,7 +307,7 @@ func is_valid_signature{
 }
 
 @view
-func get_public_key{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+func getPublicKey{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
     res: felt
 ) {
     let (res) = Account_public_key.read();
@@ -323,7 +323,7 @@ func supportsInterface{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 }
 
 @view
-func get_version() -> (version: felt) {
+func getVersion() -> (version: felt) {
     return (version=VERSION);
 }
 

@@ -91,23 +91,23 @@ def account_factory(contract_classes, account_init):
 
 
 @pytest.mark.asyncio
-async def test_add_plugin(account_factory):
+async def test_addPlugin(account_factory):
     account, _, _, session_key_class = account_factory
 
-    assert (await account.is_plugin(session_key_class).call()).result.success == (0)
-    # await sender.send_transaction([(account.contract_address, 'add_plugin', [session_key_class])], [signer])
-    await signer.send_transactions(account, [(account.contract_address, 'add_plugin', [session_key_class])])
-    assert (await account.is_plugin(session_key_class).call()).result.success == (1)
+    assert (await account.isPlugin(session_key_class).call()).result.success == (0)
+    # await sender.send_transaction([(account.contract_address, 'addPlugin', [session_key_class])], [signer])
+    await signer.send_transactions(account, [(account.contract_address, 'addPlugin', [session_key_class])])
+    assert (await account.isPlugin(session_key_class).call()).result.success == (1)
 
 @pytest.mark.asyncio
-async def test_remove_plugin(account_factory):
+async def test_removePlugin(account_factory):
     account, _, _, session_key_class = account_factory
 
-    assert (await account.is_plugin(session_key_class).call()).result.success == (0)
-    await signer.send_transactions(account, [(account.contract_address, 'add_plugin', [session_key_class])])
-    assert (await account.is_plugin(session_key_class).call()).result.success == (1)
-    await signer.send_transactions(account, [(account.contract_address, 'remove_plugin', [session_key_class])])
-    assert (await account.is_plugin(session_key_class).call()).result.success == (0)
+    assert (await account.isPlugin(session_key_class).call()).result.success == (0)
+    await signer.send_transactions(account, [(account.contract_address, 'addPlugin', [session_key_class])])
+    assert (await account.isPlugin(session_key_class).call()).result.success == (1)
+    await signer.send_transactions(account, [(account.contract_address, 'removePlugin', [session_key_class])])
+    assert (await account.isPlugin(session_key_class).call()).result.success == (0)
 
 @pytest.mark.asyncio
 async def test_call_dapp_with_session_key(account_factory, get_starknet):
@@ -115,7 +115,7 @@ async def test_call_dapp_with_session_key(account_factory, get_starknet):
     starknet = get_starknet
 
     # add session key plugin
-    await signer.send_transactions(account, [(account.contract_address, 'add_plugin', [session_key_class])])
+    await signer.send_transactions(account, [(account.contract_address, 'addPlugin', [session_key_class])])
     # authorise session key
     merkle_leaves = get_leaves(
         [dapp1.contract_address, dapp1.contract_address, dapp2.contract_address, dapp2.contract_address, dapp2.contract_address],
@@ -160,7 +160,7 @@ async def test_call_dapp_with_session_key(account_factory, get_starknet):
     )
 
     # revoke session key
-    tx_exec_info = await signer.send_transactions(account, [(account.contract_address, 'execute_on_plugin', [session_key_class, get_selector_from_name('revoke_session_key'), 1, session_key.public_key])])
+    tx_exec_info = await signer.send_transactions(account, [(account.contract_address, 'executeOnPlugin', [session_key_class, get_selector_from_name('revoke_session_key'), 1, session_key.public_key])])
     assert_event_emitted(
         tx_exec_info,
         from_address=account.contract_address,
