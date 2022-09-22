@@ -123,8 +123,6 @@ func __execute__{
 ) -> (retdata_size: felt, retdata: felt*) {
     alloc_locals;
 
-    // validate calls
-    // validate(call_array_len, call_array, calldata_len, calldata, nonce);
 
     let (caller) = get_caller_address();
     with_attr error_message("Account: no reentrant call") {
