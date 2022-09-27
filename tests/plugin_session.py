@@ -8,6 +8,7 @@ from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.starknet.compiler.compile import get_selector_from_name
 from utils.merkle_utils import generate_merkle_proof, generate_merkle_root, get_leaves
 from utils.utils import assert_revert, get_contract_class, cached_contract, assert_event_emitted
+from starkware.starknet.core.os.transaction_hash.transaction_hash import calculate_transaction_hash_common
 
 
 LOGGER = logging.getLogger(__name__)
@@ -176,3 +177,15 @@ def get_session_token(key, expires, root):
     ]
     hash = compute_hash_on_elements(session)
     return signer.sign(hash)
+
+@pytest.mark.asyncio
+async def test_call_dapp_with_schnorr(account_factory, get_starknet):
+    account, dapp1, dapp2, session_key_class = account_factory
+    starknet = get_starknet
+
+    await signer.send_transactions(account, [(account.contract_address, 'addPlugin', [session_key_class])])
+
+    tx_exec_info = await session_key.send_transactions(account, 
+        [
+            (dapp1.contract_address, 'set_balance', [47]),
+        ])
