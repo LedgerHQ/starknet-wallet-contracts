@@ -1,3 +1,4 @@
+import subprocess
 import logging
 from starkware.starknet.core.os.transaction_hash.transaction_hash import TransactionHashPrefix, calculate_transaction_hash_common
 from starkware.starknet.services.api.gateway.transaction import InvokeFunction
@@ -187,6 +188,15 @@ class MockSchnorrSigner():
         # The big todo nice to have make the signature in python 
         # signature = self.signer.sign_msg_hash(
         #     (transaction_hash).to_bytes(32, byteorder="big"))
+
+        # sage -c '_MU=2;nb_users=4; size_message=1;seed=0;load("test_musig2_example.sage")'
+        p = subprocess.Popen('sage -c \'_MU=2;nb_users=4; size_message=1;seed=0;load("./tests/utils/sage/musig2sign.sage")\' ', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        for line in p.stdout.readlines():
+            LOGGER.critical(line)
+        # output = stream.read()
+
+        # LOGGER.critical(output)
+
         sig_r = 805608576337223666507608055448388656839464615861511853976287840398054978764
         sig_s = 906015384732691789717373789084135320625855725080425633683546755281892559314
 

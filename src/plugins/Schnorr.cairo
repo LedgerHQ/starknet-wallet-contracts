@@ -122,7 +122,7 @@ func validate{
 // * The Hsig function of [MUSIG2], instanciated with pedersen hash. All data are represented as felt, the 
 // * payload input is X|| R|| m, where || notes concatenation
 // */
-func HSig_xonly{ hash_ptr: HashBuiltin*, ec_op_ptr2: EcOpBuiltin*}(R:felt, s:felt, X :felt,  message: felt)->(Hsign:felt){
+func HSig_xonly{ hash_ptr: HashBuiltin*, ec_op_ptr2: EcOpBuiltin*}(R:felt, s:felt, X :felt, message: felt)->(Hsign:felt){
 	// compute c =·= Hsig(X, R, m ),
 	alloc_locals;
 	let (__fp__, _) = get_fp_and_pc();
@@ -155,7 +155,7 @@ func HSig_xonly{ hash_ptr: HashBuiltin*, ec_op_ptr2: EcOpBuiltin*}(R:felt, s:fel
 // * The verification function of [MUSIG2], instanciated with pedersen hash over the Starkcurve. 
 // */
 //
-func Verif_Musig2_all_xonly{ hash_ptr: HashBuiltin*, ec_op_ptr2: EcOpBuiltin*}(R:felt, s:felt, KeyAgg :felt,  message: felt) ->(flag_verif:felt){
+func Verif_Musig2_all_xonly{ hash_ptr: HashBuiltin*, ec_op_ptr2: EcOpBuiltin*}(R:felt, s:felt, KeyAgg :felt, message: felt) ->(flag_verif:felt){
 	alloc_locals;
 	
 	//cy_ecpoint_t *G=cy_ec_get_generator(ctx->ctx_ec); /* get generating point of the curve , todo ec: coder un get_generator */

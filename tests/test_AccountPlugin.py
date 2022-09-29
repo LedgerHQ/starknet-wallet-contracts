@@ -175,7 +175,7 @@ async def test_schnorr(account_factory):
     await signer.send_transactions(account, [(account.contract_address, 'addPlugin', [Schnorr_class_hash])])
     
     keyAgg = 3067118560697589524435384931491320927549001107642126949141615071965375409500
-    #keyAgg = 0x6c7ed764d61998295f8de00fce8f680bbcbd5a06e45fcf94343749cdeb4ad5c
+
     await signer.send_transactions(account, [(account.contract_address, 'executeOnPlugin', [Schnorr_class_hash, get_selector_from_name('initialize'), 1 ,keyAgg])])
 
     await schnorrSigner.send_transactions(account,
