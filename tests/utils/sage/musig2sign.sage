@@ -24,41 +24,25 @@ from sage.misc.sage_ostools import redirection
 load('./tests/utils/sage/musig2.sage');
 load('./tests/utils/sage/io_conversions.sage');
 
-print("\n\n********************************************************* \n*******************SAGEMATH:Simulation of a full Sign/Verif of Musig2:\n");
 print("Simulation for a set of users of size:", nb_users);
 
 
 ##***********************IO functions**********************************************/
-print("\n*******************Generating Message of size",size_message,":\n");
-Fq=GF(Stark_order);
-message=[0..size_message-1];
-for i in [0..size_message-1]:
-	message[i]=int(Fq.random_element());
-	message[i]=607565068474629542697619802528740104783296436955825834487609344865759061951;
 print(message);
 
 
 ##***********************Key Generation and Aggregate******************************/
 
 print("\n*******************Generating Keys:\n");
+print(private_keys);
 L=[];
-secrets=[];
+secrets=private_keys;
 for i in [0..nb_users-1]:
-	print("\n***** user",i);
-	[x,P]=Musig2_KeyGen(Curve, curve_Generator, Stark_order);#Concatenation of public keys
-	
-	
-	
-#		print("/*Public key user",i,":\n",P,"*/");
-#		name='PubX_'+str(i);
-#		print(name, hex(var));
-#		name='PubY_'+str(i);
-#		print(name, hex(var));
-	
-	
+	P=curve_Generator*secrets[i];
 	L=L+[int(P[0]),int(P[1])];	
-	secrets=secrets+[x]; ##of course private keys are kept secret by users(simulation convenience)
-	
+	#secrets=secrets+[x]; ##of course private keys are kept secret by users(simulation convenience)
+
+
 print("\n /***Serialized public keys L:\n",L, "*/");
 print("\n /***Serialized secret keys :\n",secrets, "*/");
 
@@ -114,10 +98,10 @@ for i in [0..nb_users-1]:
 		Curve, curve_Generator,Stark_order, nb_users, KeyAgg,#common parameters
 		vec_a[i], secrets[i],					#user's data
 		vec_R, vec_nonces[i],				#First round output
-		message,  size_message);
+		message,  1);
 	print("s_",i,":", vec_s[i]);
 		
-s=Musig2_Sig2Agg(vec_s);
+s=Musig2_Sig2Agg(vec_s, Stark_order);
 		
 print("Final Signature: \n R=", R,"\n s=", s,"\n c=", c);
 print("With Key Agg:",KeyAgg);
@@ -127,6 +111,7 @@ print("\n*******************Verification :\n");
 print("/*R part */");
 name='R_x';
 print(R[0]);
+print(s);
 
 
 

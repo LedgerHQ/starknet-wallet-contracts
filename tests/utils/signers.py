@@ -181,24 +181,13 @@ class MockSchnorrSigner():
             nonce=nonce,
             max_fee=max_fee
         )
+        
+        p = subprocess.Popen(f'sage -c \'_MU=2;nb_users=4;size_message=1;private_keys={self.private_keys};message={[transaction_hash]};seed=0;load("./tests/utils/sage/musig2sign.sage")\' ', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        reslist = p.stdout.readlines()
 
-        # print tx_hash to sign using sage
-        #LOGGER.critical(transaction_hash)
+        sig_s = int(reslist.pop())
+        sig_r = int(reslist.pop())
 
-        # The big todo nice to have make the signature in python 
-        # signature = self.signer.sign_msg_hash(
-        #     (transaction_hash).to_bytes(32, byteorder="big"))
-
-        # sage -c '_MU=2;nb_users=4; size_message=1;seed=0;load("test_musig2_example.sage")'
-        p = subprocess.Popen('sage -c \'_MU=2;nb_users=4; size_message=1;seed=0;load("./tests/utils/sage/musig2sign.sage")\' ', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        for line in p.stdout.readlines():
-            LOGGER.critical(line)
-        # output = stream.read()
-
-        # LOGGER.critical(output)
-
-        sig_r = 805608576337223666507608055448388656839464615861511853976287840398054978764
-        sig_s = 906015384732691789717373789084135320625855725080425633683546755281892559314
 
         external_tx = InvokeFunction(
             contract_address=account.contract_address,

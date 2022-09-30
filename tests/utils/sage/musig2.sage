@@ -109,7 +109,8 @@ def Musig2_Sig1Agg(vec_Ri):
 	return Aggregated_Ri;
 	
 
-def Musig2_Sig2Agg(vec_s):
+def Musig2_Sig2Agg(vec_s, curve_order):
+	Fq=GF(curve_order);
 	s=Fq(0);
 	for i in [0..nb_users-1]:
 		s+=vec_s[i];
