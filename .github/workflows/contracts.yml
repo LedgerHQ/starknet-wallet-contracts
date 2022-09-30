@@ -23,6 +23,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        sudo apt-get update
+        sudo apt-get install sagemath sagemath-doc-en sagemath-jupyter
         pip install -r requirements.txt
     - name: Test with pytest
       run: |
