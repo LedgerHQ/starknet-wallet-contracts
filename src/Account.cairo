@@ -31,16 +31,16 @@ namespace IPlugin {
     }
 }
 
-//###################
+/////////////////////
 // CONSTANTS
-//###################
+/////////////////////
 
 const VERSION = '0.1.0';
 const USE_PLUGIN_SELECTOR = 1121675007639292412441492001821602921366030142137563176027248191276862353634;
 
-//###################
+/////////////////////
 // STRUCTS
-//###################
+/////////////////////
 
 struct Call {
     to: felt,
@@ -58,9 +58,9 @@ struct AccountCallArray {
     data_len: felt,
 }
 
-//###################
+/////////////////////
 // EVENTS
-//###################
+/////////////////////
 
 @event
 func signer_changed(newAccount_signer: felt) {
@@ -74,9 +74,9 @@ func account_created(account: felt, key: felt) {
 func transaction_executed(hash: felt, response_len: felt, response: felt*) {
 }
 
-//###################
+/////////////////////
 // STORAGE VARIABLES
-//###################
+/////////////////////
 
 @storage_var
 func Account_public_key() -> (res: felt) {
@@ -86,9 +86,9 @@ func Account_public_key() -> (res: felt) {
 func Account_plugins(plugin: felt) -> (res: felt) {
 }
 
-//###################
+/////////////////////
 // EXTERNAL FUNCTIONS
-//###################
+/////////////////////
 
 @constructor
 func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(signer: felt) {
@@ -281,9 +281,9 @@ func validate_with_plugin{
     return ();
 }
 
-//###################
+/////////////////////
 // VIEW FUNCTIONS
-//###################
+/////////////////////
 
 @view
 func isValidSignature{
@@ -325,9 +325,9 @@ func getVersion() -> (version: felt) {
     return (version=VERSION);
 }
 
-//###################
+/////////////////////
 // INTERNAL FUNCTIONS
-//###################
+/////////////////////
 
 func assert_only_self{syscall_ptr: felt*}() -> () {
     let (self) = get_contract_address();

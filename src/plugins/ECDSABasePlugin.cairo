@@ -17,29 +17,29 @@ struct AccountCallArray {
     data_len: felt,
 }
 
-//###################
+/////////////////////
 // CONSTANTS
-//###################
+/////////////////////
 
-//###################
+/////////////////////
 // EVENTS
-//###################
+/////////////////////
 
 @event
 func account_created(account: felt, key: felt) {
 }
 
-//###################
+/////////////////////
 // STORAGE VARIABLES
-//###################
+/////////////////////
 
 @storage_var
 func Account_public_key() -> (res: felt) {
 }
 
-//###################
+/////////////////////
 // PLUGIN INTERFACE
-//###################
+/////////////////////
 
 @external
 func validate{
@@ -68,9 +68,9 @@ func validate{
     return ();
 }
 
-//###################
+/////////////////////
 // EXTERNAL FUNCTIONS
-//###################
+/////////////////////
 
 @external
 func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
@@ -96,9 +96,9 @@ func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
     return ();
 }
 
-//###################
+/////////////////////
 // SETTERS
-//###################
+/////////////////////
 
 @external
 func setPublicKey{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
@@ -109,9 +109,9 @@ func setPublicKey{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     return ();
 }
 
-//###################
+/////////////////////
 // VIEW FUNCTIONS
-//###################
+/////////////////////
 
 @view
 func isValidSignature{
@@ -140,9 +140,9 @@ func getSigner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     return (signer=res);
 }
 
-//###################
+/////////////////////
 // INTERNAL FUNCTIONS
-//###################
+/////////////////////
 
 func assert_initialized{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     let (signer) = Account_public_key.read();
