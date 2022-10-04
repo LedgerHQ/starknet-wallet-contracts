@@ -184,7 +184,8 @@ class MockSchnorrSigner():
         
         p = subprocess.Popen(f'sage -c \'_MU=2;nb_users=4;size_message=1;private_keys={self.private_keys};message={[transaction_hash]};seed=0;load("./tests/utils/sage/musig2sign.sage")\' ', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         reslist = p.stdout.readlines()
-
+        for line in p.stdout.readlines():
+            LOGGER.critical(line)
         sig_s = int(reslist.pop())
         sig_r = int(reslist.pop())
 
