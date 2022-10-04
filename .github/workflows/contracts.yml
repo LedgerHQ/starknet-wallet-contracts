@@ -29,5 +29,4 @@ jobs:
         pip install -r requirements.txt
     - name: Test with pytest
       run: |
-        sage -c '_MU=2;nb_users=4;size_message=1;private_keys={self.private_keys};message={[transaction_hash]};seed=0;load("./tests/utils/sage/musig2sign.sage")'
         python -m pytest -v ./tests/*.py

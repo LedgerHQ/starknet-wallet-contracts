@@ -17,7 +17,7 @@
 #_MU=4;nb_users=3; size_message=2;seed=0;
 
 from time import time
-import sage.all
+# import sage.all
 import subprocess
 from sage.misc.sage_ostools import redirection
 
