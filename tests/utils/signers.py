@@ -148,6 +148,53 @@ class MockEthSigner():
         # the hash and signature are returned for other tests to use
         return execution_info, transaction_hash, [signature.v, *sig_r, *sig_s]
 
+class StarkSigner():
+    def __init__(self, private_key: int):
+        self.private_key = private_key
+        self.public_key = private_to_stark_key(private_key)
+
+    def sign(self, message_hash: int) -> Tuple[int, int]:
+        return sign(msg_hash=message_hash, priv_key=self.private_key)
+
+    async def send_transaction(self, account, calls, nonce: Optional[int] = None, max_fee: Optional[int] = 0) -> TransactionExecutionInfo :
+        call_array, calldata = from_call_to_call_array(calls)
+
+        raw_invocation = account.__execute__(call_array, calldata)
+        state = raw_invocation.state
+
+        if nonce is None:
+            nonce = await state.state.get_nonce_at(contract_address=account.contract_address)
+
+        transaction_hash = calculate_transaction_hash_common(
+            tx_hash_prefix=TransactionHashPrefix.INVOKE,
+            version=TRANSACTION_VERSION,
+            contract_address=account.contract_address,
+            entry_point_selector=0,
+            calldata=raw_invocation.calldata,
+            max_fee=max_fee,
+            chain_id=StarknetChainId.TESTNET.value,
+            additional_data=[nonce],
+        )
+
+        signatures = [0] + list(self.sign(transaction_hash))
+
+        external_tx = InvokeFunction(
+            contract_address=account.contract_address,
+            calldata=raw_invocation.calldata,
+            entry_point_selector=None,
+            signature=signatures,
+            max_fee=max_fee,
+            version=TRANSACTION_VERSION,
+            nonce=nonce,
+        )
+
+        tx = InternalTransaction.from_external(
+            external_tx=external_tx, general_config=state.general_config
+        )
+        execution_info = await state.execute_tx(tx=tx)
+        return execution_info
+
+
 
 def get_raw_invoke(sender, calls):
     """Return raw invoke, remove when test framework supports `invoke`."""
