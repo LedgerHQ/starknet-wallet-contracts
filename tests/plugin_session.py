@@ -2,19 +2,26 @@ import pytest
 import asyncio
 import logging
 from starkware.starknet.testing.starknet import Starknet
+from starkware.starknet.definitions.general_config import StarknetChainId
 from starkware.starknet.business_logic.state.state import BlockInfo
-from utils.signers import MockSigner
+from utils.signers import MockSigner, PluginSigner
 from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.starknet.compiler.compile import get_selector_from_name
 from utils.merkle_utils import generate_merkle_proof, generate_merkle_root, get_leaves
-from utils.utils import assert_revert, get_contract_class, cached_contract, assert_event_emitted
+from utils.utils import assert_revert, get_contract_class, str_to_felt, cached_contract, assert_event_emitted
 
+# H('StarkNetDomain(chainId:felt)')
+STARKNET_DOMAIN_TYPE_HASH = 0x13cda234a04d66db62c06b8e3ad5f91bd0c67286c2c7519a826cf49da6ba478
+# H('Session(key:felt,expires:felt,root:merkletree)')
+SESSION_TYPE_HASH = 0x1aa0e1c56b45cf06a54534fa1707c54e520b842feb21d03b7deddb6f1e340c
+# H(Policy(contractAddress:felt,selector:selector))
+POLICY_TYPE_HASH = 0x2f0026e78543f036f33e26a8f5891b88c58dc1e20cbbfaf0bb53274da6fa568
 
 LOGGER = logging.getLogger(__name__)
 
 signer = MockSigner(123456789987654321)
 
-session_key = MockSigner(666666666666666666)
+session_key = PluginSigner(666666666666666666)
 wrong_session_key = MockSigner(6767676767)
 
 DEFAULT_TIMESTAMP = 1640991600
@@ -73,7 +80,7 @@ async def account_init(contract_classes):
         constructor_calldata=[],
     )
 
-    await account.initialize(base_plugin_class_hash, [signer.public_key]).execute()
+    await account.initialize(base_plugin_class_hash, [1, signer.public_key]).execute()
 
     return starknet.state, account, dapp1, dapp2, session_key_class_hash, base_plugin_class_hash
 
@@ -118,12 +125,13 @@ async def test_call_dapp_with_session_key(account_factory, get_starknet):
     await signer.send_transactions(account, [(account.contract_address, 'addPlugin', [session_key_class])])
     # authorise session key
     merkle_leaves = get_leaves(
+        POLICY_TYPE_HASH,
         [dapp1.contract_address, dapp1.contract_address, dapp2.contract_address, dapp2.contract_address, dapp2.contract_address],
         [get_selector_from_name('set_balance'), get_selector_from_name('set_balance_double'), get_selector_from_name('set_balance'), get_selector_from_name('set_balance_double'), get_selector_from_name('set_balance_times3')]
     )    
     leaves = list(map(lambda x: x[0], merkle_leaves))
     root = generate_merkle_root(leaves)
-    session_token = get_session_token(session_key.public_key, DEFAULT_TIMESTAMP + 10, root)
+    session_token = get_session_token(session_key.public_key, DEFAULT_TIMESTAMP + 10, root, StarknetChainId.TESTNET.value, account.contract_address)
 
     proof = generate_merkle_proof(leaves, 0)
     proof2 = generate_merkle_proof(leaves, 4)
@@ -132,9 +140,10 @@ async def test_call_dapp_with_session_key(account_factory, get_starknet):
     update_starknet_block(starknet=starknet, block_timestamp=(DEFAULT_TIMESTAMP))
     # call with session key
     # passing once the len(proof). if odd nb of leaves proof will be filled with 0.
-    tx_exec_info = await session_key.send_transactions(account, 
+    tx_exec_info = await session_key.send_transactions(account,
+        session_key_class,
+        [session_key.public_key, DEFAULT_TIMESTAMP + 10, session_token[0], session_token[1], root, len(proof), 2, *proof, *proof2], 
         [
-            (account.contract_address, 'use_plugin', [session_key_class, session_key.public_key, DEFAULT_TIMESTAMP + 10, session_token[0], session_token[1], root, len(proof), *proof, *proof2]),
             (dapp1.contract_address, 'set_balance', [47]),
             (dapp2.contract_address, 'set_balance_times3', [20])
         ])
@@ -152,8 +161,9 @@ async def test_call_dapp_with_session_key(account_factory, get_starknet):
     # wrong policy call with random proof
     await assert_revert(
         session_key.send_transactions(account,
+        session_key_class,
+        [session_key.public_key, DEFAULT_TIMESTAMP + 10, session_token[0], session_token[1], root, len(proof), 1, *proof],
             [
-                (account.contract_address, 'use_plugin', [session_key_class, session_key.public_key, DEFAULT_TIMESTAMP + 10, session_token[0], session_token[1], root, len(proof), *proof]),
                 (dapp1.contract_address, 'set_balance_times3', [47])
             ]),
         reverted_with="Not allowed by policy"
@@ -170,18 +180,23 @@ async def test_call_dapp_with_session_key(account_factory, get_starknet):
     # check the session key is no longer authorised
     await assert_revert(
         session_key.send_transactions(account,
+        session_key_class,
+        [session_key.public_key, DEFAULT_TIMESTAMP + 10, session_token[0], session_token[1], root, len(proof), 1, *proof],
             [
-                (account.contract_address, 'use_plugin', [session_key_class, session_key.public_key, DEFAULT_TIMESTAMP + 10, session_token[0], session_token[1], root, len(proof), *proof]),
                 (dapp1.contract_address, 'set_balance', [47])
             ]),
         reverted_with="session key revoked"
     )
 
-def get_session_token(key, expires, root):
-    session = [
-        key,
-        expires,
-        root
-    ]
-    hash = compute_hash_on_elements(session)
+def get_session_token(session_key, session_expires, root, chain_id, account):
+
+    domain_hash = compute_hash_on_elements([STARKNET_DOMAIN_TYPE_HASH, chain_id])
+    message_hash = compute_hash_on_elements([SESSION_TYPE_HASH, session_key, session_expires, root])
+    
+    hash = compute_hash_on_elements([
+        str_to_felt('StarkNet Message'),
+        domain_hash,
+        account,
+        message_hash
+    ])
     return signer.sign(hash)

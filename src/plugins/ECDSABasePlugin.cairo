@@ -45,8 +45,6 @@ func Account_public_key() -> (res: felt) {
 func validate{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ecdsa_ptr: SignatureBuiltin*, range_check_ptr
 }(
-    plugin_data_len: felt,
-    plugin_data: felt*,
     call_array_len: felt,
     call_array: AccountCallArray*,
     calldata_len: felt,
@@ -59,11 +57,6 @@ func validate{
 
     // get the tx info
     let (tx_info) = get_tx_info();
-    // make sure no call is to the account during a multicall
-    if (call_array_len != 1) {
-        assert_no_self_call(tx_info.account_contract_address, call_array_len, call_array);
-    }
-
     isValidSignature(tx_info.transaction_hash, tx_info.signature_len, tx_info.signature);
     return ();
 }

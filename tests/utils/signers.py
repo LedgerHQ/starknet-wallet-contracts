@@ -1,10 +1,13 @@
-from starkware.starknet.core.os.transaction_hash.transaction_hash import TransactionHashPrefix
+from starkware.starknet.services.api.gateway.transaction import InvokeFunction
+from nile.signer import Signer, from_call_to_call_array, get_transaction_hash, TRANSACTION_VERSION
+from typing import Optional, List, Tuple
+from starkware.crypto.signature.signature import private_to_stark_key, sign
+from starkware.starknet.definitions.general_config import StarknetChainId
+from starkware.starknet.core.os.transaction_hash.transaction_hash import calculate_transaction_hash_common, TransactionHashPrefix
 from starkware.starknet.services.api.gateway.transaction import InvokeFunction
 from starkware.starknet.business_logic.transaction.objects import InternalTransaction, TransactionExecutionInfo
-from nile.signer import Signer, from_call_to_call_array, get_transaction_hash, TRANSACTION_VERSION
 from utils.utils import to_uint
 import eth_keys
-
 
 class MockSigner():
     """
@@ -193,6 +196,60 @@ class StarkSigner():
         )
         execution_info = await state.execute_tx(tx=tx)
         return execution_info
+
+
+
+class PluginSigner():
+    def __init__(self, private_key):
+        self.signer = Signer(private_key)
+        self.public_key = self.signer.public_key
+
+    async def send_transaction(self, account, to, selector_name, calldata, nonce=None, max_fee=0):
+        return await self.send_transactions(account, [(to, selector_name, calldata)], nonce, max_fee)
+
+    async def send_transactions(
+        self,
+        account,
+        plugin_id,
+        plugin,
+        calls,
+        nonce=None,
+        max_fee=0
+    ) -> TransactionExecutionInfo:
+        # hexify address before passing to from_call_to_call_array
+        build_calls = []
+        for call in calls:
+            build_call = list(call)
+            build_call[0] = hex(build_call[0])
+            build_calls.append(build_call)
+
+        raw_invocation = get_raw_invoke(account, build_calls)
+        state = raw_invocation.state
+
+        if nonce is None:
+            nonce = await state.state.get_nonce_at(account.contract_address)
+
+        _, sig_r, sig_s = self.signer.sign_transaction(account.contract_address, build_calls, nonce, max_fee)
+
+        # craft invoke and execute tx
+        external_tx = InvokeFunction(
+            contract_address=account.contract_address,
+            calldata=raw_invocation.calldata,
+            entry_point_selector=None,
+            signature=[plugin_id, sig_r, sig_s, *plugin],
+            max_fee=max_fee,
+            version=TRANSACTION_VERSION,
+            nonce=nonce,
+        )
+
+        tx = InternalTransaction.from_external(
+            external_tx=external_tx, general_config=state.general_config
+        )
+        execution_info = await state.execute_tx(tx=tx)
+        return execution_info
+
+    def sign(self, message_hash):
+        return self.signer.sign(message_hash)
 
 
 
