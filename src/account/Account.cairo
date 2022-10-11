@@ -18,7 +18,7 @@ from starkware.cairo.common.bool import TRUE, FALSE
 from openzeppelin.introspection.erc165.library import ERC165
 from openzeppelin.utils.constants.library import IACCOUNT_ID
 from src.plugins.IPlugin import IPlugin
-from src.account.library import AccountCallArray, Call
+from src.account.library import AccountCallArray, Call, TRANSACTION_VERSION, QUERY_VERSION
 
 /////////////////////
 // CONSTANTS
@@ -107,9 +107,14 @@ func __execute__{
     alloc_locals;
 
     let (caller) = get_caller_address();
-    with_attr error_message("Account: no reentrant call") {
+    with_attr error_message("Account: Reentrant call") {
         assert caller = 0;
     }
+
+    let (tx_info) = get_tx_info();
+
+    // block transaction with version != 1 or QUERY
+    assert_correct_tx_version(tx_info.version);
 
     // TMP: Convert `AccountCallArray` to 'Call'.
     let (calls: Call*) = alloc();
@@ -128,7 +133,6 @@ func __execute__{
     }
 
     // emit event
-    let (tx_info) = get_tx_info();
     transaction_executed.emit(
         hash=tx_info.transaction_hash, response_len=response_len, response=response
     );
@@ -329,6 +333,13 @@ func assert_initialized{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     let (signer) = Account_plugins.read(0);
     with_attr error_message("Account: not initialized") {
         assert_not_zero(signer);
+    }
+    return ();
+}
+
+func assert_correct_tx_version{syscall_ptr: felt*}(tx_version: felt) -> () {
+    with_attr error_message("argent: invalid tx version") {
+        assert (tx_version - TRANSACTION_VERSION) * (tx_version - QUERY_VERSION) = 0;
     }
     return ();
 }
