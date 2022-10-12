@@ -79,7 +79,7 @@ func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 
     // plugin_id 0 is default plugin
     Account_plugins.write(0, plugin_id);
-    Account_plugins.write(plugin_id, 1);
+    Account_plugins.write(plugin_id, TRUE);
 
     ERC165.register_interface(IACCOUNT_ID);
 
@@ -191,7 +191,7 @@ func addPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     with_attr error_message("plugin cannot be null") {
         assert_not_zero(plugin);
     }
-    Account_plugins.write(plugin, 1);
+    Account_plugins.write(plugin, TRUE);
     return ();
 }
 
@@ -200,7 +200,7 @@ func removePlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     // only called via execute
     assert_only_self();
     // remove plugin
-    Account_plugins.write(plugin, 0);
+    Account_plugins.write(plugin, FALSE);
     return ();
 }
 
