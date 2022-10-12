@@ -141,13 +141,13 @@ async def test_account_takeover_with_reentrant_call(account_factory):
 async def test_public_key_setter(account_factory):
     ECDSA_plugin_class, account, *_ = account_factory
 
-    execution_info = await account.readOnPlugin(ECDSA_plugin_class, get_selector_from_name('getSigner'), []).call()
+    execution_info = await account.readOnPlugin(ECDSA_plugin_class, get_selector_from_name('getPublicKey'), []).call()
     assert execution_info.result.retdata == [signer.public_key]
 
     # set new pubkey
     await signer.send_transactions(account, [(account.contract_address, 'executeOnPlugin', [ECDSA_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key])])
 
-    execution_info = await account.readOnPlugin(ECDSA_plugin_class, get_selector_from_name('getSigner'), []).call()
+    execution_info = await account.readOnPlugin(ECDSA_plugin_class, get_selector_from_name('getPublicKey'), []).call()
     assert execution_info.result.retdata == [other.public_key]
 
     await assert_revert(
