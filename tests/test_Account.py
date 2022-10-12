@@ -9,6 +9,7 @@ signer = MockSigner(123456789987654321)
 other = MockSigner(987654321123456789)
 
 IACCOUNT_ID = 0xa66bd575
+ERC165_ID   = 0x01ffc9a7
 
 @pytest.fixture(scope='module')
 def event_loop():
@@ -19,14 +20,14 @@ def contract_classes():
     account_cls = get_contract_class('Account')
     init_cls = get_contract_class("Initializable")
     attacker_cls = get_contract_class("AccountReentrancy")
-    ECDSA_plugin_cls = get_contract_class("ECDSABasePlugin")
+    StarkSigner_plugin_cls = get_contract_class("StarkSigner")
 
-    return account_cls, init_cls, attacker_cls, ECDSA_plugin_cls
+    return account_cls, init_cls, attacker_cls, StarkSigner_plugin_cls
 
 
 @pytest.fixture(scope='module')
 async def account_init(contract_classes):
-    account_cls, init_cls, attacker_cls, ECDSA_plugin_cls = contract_classes
+    account_cls, init_cls, attacker_cls, StarkSigner_plugin_cls = contract_classes
     starknet = await State.init()
 
     account1 = await starknet.deploy(
@@ -49,19 +50,19 @@ async def account_init(contract_classes):
         contract_class=attacker_cls,
         constructor_calldata=[],
     )
-    ECDSA_plugin_class = await starknet.declare(contract_class=ECDSA_plugin_cls)
-    ECDSA_plugin_class_hash = ECDSA_plugin_class.class_hash
+    StarkSigner_plugin_class = await starknet.declare(contract_class=StarkSigner_plugin_cls)
+    StarkSigner_plugin_class_hash = StarkSigner_plugin_class.class_hash
 
 
-    await account1.initialize(ECDSA_plugin_class_hash, [1, signer.public_key]).execute()
-    await account2.initialize(ECDSA_plugin_class_hash, [1, signer.public_key]).execute()
-    return starknet.state, account1, account2, initializable1, initializable2, attacker, ECDSA_plugin_class_hash
+    await account1.initialize(StarkSigner_plugin_class_hash, [1, signer.public_key]).execute()
+    await account2.initialize(StarkSigner_plugin_class_hash, [1, signer.public_key]).execute()
+    return starknet.state, account1, account2, initializable1, initializable2, attacker, StarkSigner_plugin_class_hash
 
 
 @pytest.fixture
 def account_factory(contract_classes, account_init):
-    account_cls, init_cls, attacker_cls, ECDSA_plugin_cls = contract_classes
-    state, account1, account2, initializable1, initializable2, attacker, ECDSA_plugin_class_hash = account_init
+    account_cls, init_cls, attacker_cls, StarkSigner_plugin_cls = contract_classes
+    state, account1, account2, initializable1, initializable2, attacker, StarkSigner_plugin_class_hash = account_init
     _state = state.copy()
     account1 = cached_contract(_state, account_cls, account1)
     account2 = cached_contract(_state, account_cls, account2)
@@ -69,14 +70,16 @@ def account_factory(contract_classes, account_init):
     initializable2 = cached_contract(_state, init_cls, initializable2)
     attacker = cached_contract(_state, attacker_cls, attacker)
 
-    return ECDSA_plugin_class_hash, account1, account2, initializable1, initializable2, attacker
+    return StarkSigner_plugin_class_hash, account1, account2, initializable1, initializable2, attacker
 
 
 @pytest.mark.asyncio
 async def test_constructor(account_factory):
-    ECDSA_plugin_class, account, *_ = account_factory
+    StarkSigner_plugin_class, account, *_ = account_factory
     
-    assert (await account.isPlugin(ECDSA_plugin_class).call()).result.success == (1)
+    assert (await account.isPlugin(StarkSigner_plugin_class).call()).result.success == (1)
+    assert (await account.supportsInterface(IACCOUNT_ID).call()).result.success == (1)
+    assert (await account.supportsInterface(ERC165_ID).call()).result.success == (1)
 
 
 @pytest.mark.asyncio
@@ -94,7 +97,7 @@ async def test_execute(account_factory):
 
 @pytest.mark.asyncio
 async def test_multicall(account_factory):
-    ECDSA_plugin_class, account, _, initializable_1, initializable_2, _ = account_factory
+    StarkSigner_plugin_class, account, _, initializable_1, initializable_2, _ = account_factory
 
     execution_info = await initializable_1.initialized().call()
     assert execution_info.result == (0,)
@@ -122,7 +125,7 @@ async def test_multicall(account_factory):
                 (initializable_1.contract_address, 'initialize', []),
                 (initializable_2.contract_address, 'initialize', []),
                 (account.contract_address, 'executeOnPlugin', 
-                    [ECDSA_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key]
+                    [StarkSigner_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key]
                 )
             ]
         )
@@ -139,17 +142,17 @@ async def test_account_takeover_with_reentrant_call(account_factory):
 
 @pytest.mark.asyncio
 async def test_public_key_setter(account_factory):
-    ECDSA_plugin_class, account, *_ = account_factory
+    StarkSigner_plugin_class, account, *_ = account_factory
 
-    execution_info = await account.readOnPlugin(ECDSA_plugin_class, get_selector_from_name('getPublicKey'), []).call()
+    execution_info = await account.readOnPlugin(StarkSigner_plugin_class, get_selector_from_name('getPublicKey'), []).call()
     assert execution_info.result.retdata == [signer.public_key]
 
     # set new pubkey
-    await signer.send_transactions(account, [(account.contract_address, 'executeOnPlugin', [ECDSA_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key])])
+    await signer.send_transactions(account, [(account.contract_address, 'executeOnPlugin', [StarkSigner_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key])])
 
-    execution_info = await account.readOnPlugin(ECDSA_plugin_class, get_selector_from_name('getPublicKey'), []).call()
+    execution_info = await account.readOnPlugin(StarkSigner_plugin_class, get_selector_from_name('getPublicKey'), []).call()
     assert execution_info.result.retdata == [other.public_key]
 
     await assert_revert(
-        signer.send_transactions(account, [(account.contract_address, 'executeOnPlugin', [ECDSA_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key])])
+        signer.send_transactions(account, [(account.contract_address, 'executeOnPlugin', [StarkSigner_plugin_class, get_selector_from_name('setPublicKey'), 1 ,other.public_key])])
     )

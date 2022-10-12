@@ -8,7 +8,6 @@ from starkware.starknet.common.syscalls import get_tx_info, get_contract_address
 
 from starkware.cairo.common.bool import TRUE, FALSE
 from openzeppelin.introspection.erc165.library import ERC165, IERC165_ID
-from openzeppelin.utils.constants.library import IACCOUNT_ID
 
 struct AccountCallArray {
     to: felt,
@@ -76,16 +75,18 @@ func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
     let signer = [plugin_data];
     // check that we are not already initialized
     let (currentAccount_signer) = Account_public_key.read();
-    with_attr error_message("already initialized") {
+    with_attr error_message("StarkSigner: already initialized") {
         assert currentAccount_signer = 0;
     }
+    with_attr error_message("StarkSigner: invalid argument length") {
+        assert plugin_data_len = 1;
+    }
     // check that the target signer is not zero
-    with_attr error_message("signer cannot be null") {
+    with_attr error_message("StarkSigner: signer cannot be null") {
         assert_not_zero(signer);
     }
     // initialize the contract
     Account_public_key.write(signer);
-    ERC165.register_interface(IACCOUNT_ID);
 
     // emit event
     let (self) = get_contract_address();
@@ -178,7 +179,7 @@ func assert_no_self_call(self: felt, call_array_len: felt, call_array: AccountCa
 func assert_only_self{syscall_ptr: felt*}() -> () {
     let (self) = get_contract_address();
     let (caller_address) = get_caller_address();
-    with_attr error_message("must be called via execute") {
+    with_attr error_message("StarkSigner: only self") {
         assert self = caller_address;
     }
     return ();
