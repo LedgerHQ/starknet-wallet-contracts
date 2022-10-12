@@ -81,6 +81,8 @@ func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
     Account_plugins.write(0, plugin_id);
     Account_plugins.write(plugin_id, 1);
 
+    ERC165.register_interface(IACCOUNT_ID);
+
     let (self) = get_contract_address();
     account_created.emit(self);
 
@@ -218,14 +220,6 @@ func executeOnPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     return ();
 }
 
-@view
-func isPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) -> (
-    success: felt
-) {
-    let (res) = Account_plugins.read(plugin);
-    return (success=res);
-}
-
 func validate_with_plugin{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ecdsa_ptr: SignatureBuiltin*, range_check_ptr
 }(
@@ -272,6 +266,14 @@ func isValidSignature{
 
     assert retdata_size = 1;
     return (isValid=retdata[0]);
+}
+
+@view
+func isPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) -> (
+    success: felt
+) {
+    let (res) = Account_plugins.read(plugin);
+    return (success=res);
 }
 
 @view
