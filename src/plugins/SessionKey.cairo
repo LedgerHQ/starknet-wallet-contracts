@@ -66,7 +66,7 @@ func validate{
     let (tx_info) = get_tx_info();
 
      // parse the plugin data
-    with_attr error_message("invalid plugin data") {
+    with_attr error_message("SessionKey: invalid plugin data") {
         let sig_r = tx_info.signature[1];
         let sig_s = tx_info.signature[2];
         let session_key = [tx_info.signature + 3];
@@ -77,7 +77,7 @@ func validate{
         let proofs = tx_info.signature + 10;
     }
 
-    with_attr error_message("session expired") {
+    with_attr error_message("SessionKey: session expired") {
         let (now) = get_block_timestamp();
         assert_nn(session_expires - now);
     }
@@ -85,7 +85,7 @@ func validate{
         let (session_hash) = compute_session_hash(
             session_key, session_expires, root, tx_info.chain_id, tx_info.account_contract_address
         );    
-        with_attr error_message("unauthorised session") {
+        with_attr error_message("SessionKey: unauthorised session") {
         IAccount.isValidSignature(
             contract_address=tx_info.account_contract_address,
             hash=session_hash,
@@ -94,12 +94,12 @@ func validate{
         );
     }
     // check if the session key is revoked
-    with_attr error_message("session key revoked") {
+    with_attr error_message("SessionKey: session key revoked") {
         let (is_revoked) = SessionKey_revoked_keys.read(session_key);
         assert is_revoked = 0;
     }
     // check if the tx is signed by the session key
-    with_attr error_message("session key signature invalid") {
+    with_attr error_message("SessionKey: invalid signature") {
         verify_ecdsa_signature(
             message=tx_info.transaction_hash,
             public_key=session_key,
@@ -113,13 +113,17 @@ func validate{
 }
 
 @external
-func revoke_session_key{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func revokeSessionKey{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     session_key: felt
 ) {
     SessionKey_revoked_keys.write(session_key, 1);
     session_key_revoked.emit(session_key);
     return ();
 }
+
+/////////////////////
+// INTERNAL FUNCTIONS
+/////////////////////
 
 func check_policy{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ecdsa_ptr: SignatureBuiltin*, range_check_ptr
@@ -150,7 +154,7 @@ func check_policy{
     }
 
     let (proof_valid) = merkle_verify(leaf, root, proof_len, proofs);
-    with_attr error_message("Not allowed by policy") {
+    with_attr error_message("SessionKey: not allowed by policy") {
         assert proof_valid = TRUE;
     }
     check_policy(
