@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 from utils.signers import MockSigner
-from utils.utils import assert_revert, get_contract_class, cached_contract, TRUE, State
+from utils.utils import assert_revert, get_contract_class, cached_contract, TRUE, FALSE, State
 from starkware.starknet.compiler.compile import get_selector_from_name
 
 
@@ -77,9 +77,9 @@ def account_factory(contract_classes, account_init):
 async def test_constructor(account_factory):
     StarkSigner_plugin_class, account, *_ = account_factory
     
-    assert (await account.isPlugin(StarkSigner_plugin_class).call()).result.success == (1)
-    assert (await account.supportsInterface(IACCOUNT_ID).call()).result.success == (1)
-    assert (await account.supportsInterface(ERC165_ID).call()).result.success == (1)
+    assert (await account.isPlugin(StarkSigner_plugin_class).call()).result.success == (TRUE)
+    assert (await account.supportsInterface(IACCOUNT_ID).call()).result.success == (TRUE)
+    assert (await account.supportsInterface(ERC165_ID).call()).result.success == (TRUE)
 
 
 @pytest.mark.asyncio
@@ -87,12 +87,12 @@ async def test_execute(account_factory):
     _, account, _, initializable, *_ = account_factory
 
     execution_info = await initializable.initialized().call()
-    assert execution_info.result == (0,)
+    assert execution_info.result == (FALSE,)
 
     await signer.send_transactions(account, [(initializable.contract_address, 'initialize', [])])
 
     execution_info = await initializable.initialized().call()
-    assert execution_info.result == (1,)
+    assert execution_info.result == (TRUE,)
 
 
 @pytest.mark.asyncio
@@ -100,9 +100,9 @@ async def test_multicall(account_factory):
     StarkSigner_plugin_class, account, _, initializable_1, initializable_2, _ = account_factory
 
     execution_info = await initializable_1.initialized().call()
-    assert execution_info.result == (0,)
+    assert execution_info.result == (FALSE,)
     execution_info = await initializable_2.initialized().call()
-    assert execution_info.result == (0,)
+    assert execution_info.result == (FALSE,)
 
     await signer.send_transactions(
         account,
@@ -113,9 +113,9 @@ async def test_multicall(account_factory):
     )
 
     execution_info = await initializable_1.initialized().call()
-    assert execution_info.result == (1,)
+    assert execution_info.result == (TRUE,)
     execution_info = await initializable_2.initialized().call()
-    assert execution_info.result == (1,)
+    assert execution_info.result == (TRUE,)
 
     # Should revert if trying to do call the plugins in a multicall
     await assert_revert(

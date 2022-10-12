@@ -8,7 +8,7 @@ from utils.signers import MockSigner, PluginSigner
 from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.starknet.compiler.compile import get_selector_from_name
 from utils.merkle_utils import generate_merkle_proof, generate_merkle_root, get_leaves
-from utils.utils import assert_revert, get_contract_class, str_to_felt, cached_contract, assert_event_emitted
+from utils.utils import assert_revert, get_contract_class, str_to_felt, cached_contract, assert_event_emitted, TRUE, FALSE
 
 # H('StarkNetDomain(chainId:felt)')
 STARKNET_DOMAIN_TYPE_HASH = 0x13cda234a04d66db62c06b8e3ad5f91bd0c67286c2c7519a826cf49da6ba478
@@ -101,20 +101,20 @@ def account_factory(contract_classes, account_init):
 async def test_addPlugin(account_factory):
     account, _, _, session_key_class = account_factory
 
-    assert (await account.isPlugin(session_key_class).call()).result.success == (0)
+    assert (await account.isPlugin(session_key_class).call()).result.success == (FALSE)
     # await sender.send_transaction([(account.contract_address, 'addPlugin', [session_key_class])], [signer])
     await signer.send_transactions(account, [(account.contract_address, 'addPlugin', [session_key_class])])
-    assert (await account.isPlugin(session_key_class).call()).result.success == (1)
+    assert (await account.isPlugin(session_key_class).call()).result.success == (TRUE)
 
 @pytest.mark.asyncio
 async def test_removePlugin(account_factory):
     account, _, _, session_key_class = account_factory
 
-    assert (await account.isPlugin(session_key_class).call()).result.success == (0)
+    assert (await account.isPlugin(session_key_class).call()).result.success == (FALSE)
     await signer.send_transactions(account, [(account.contract_address, 'addPlugin', [session_key_class])])
-    assert (await account.isPlugin(session_key_class).call()).result.success == (1)
+    assert (await account.isPlugin(session_key_class).call()).result.success == (TRUE)
     await signer.send_transactions(account, [(account.contract_address, 'removePlugin', [session_key_class])])
-    assert (await account.isPlugin(session_key_class).call()).result.success == (0)
+    assert (await account.isPlugin(session_key_class).call()).result.success == (FALSE)
 
 @pytest.mark.asyncio
 async def test_call_dapp_with_session_key(account_factory, get_starknet):
