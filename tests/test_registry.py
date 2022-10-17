@@ -116,11 +116,15 @@ async def test_registry(account_factory):
     #toggleRegistry
     #await signer.send_transactions(account, [(dapp1.contract_address, 'toggleRegistry', [registryId, session_key_class])])
     
-    # execution_info = await signer.send_transactions(account, [
-    #     (registry.contract_address, 'checkAuthorisation', [registryId, dapp1.contract_address, session_key_class])
-    # ])
     execution_info = await registry.checkAuthorisation(registryId, account.contract_address, dapp1.contract_address, session_key_class).call()
+    execution_info.result == (FALSE,)
 
+    await signer.send_transactions(account, [
+        (registry.contract_address, 'toggleRegistry', [registryId, dapp1.contract_address, session_key_class])
+    ])
+
+    execution_info = await registry.checkAuthorisation(registryId, account.contract_address, dapp1.contract_address, session_key_class).call()
+    execution_info.result == (TRUE,)
 
 
 
