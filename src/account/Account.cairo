@@ -25,7 +25,6 @@ from src.account.library import AccountCallArray, Call, TRANSACTION_VERSION, QUE
 /////////////////////
 
 const VERSION = '0.1.0';
-const USE_PLUGIN_SELECTOR = 1121675007639292412441492001821602921366030142137563176027248191276862353634;
 const IS_VALID_SIGNATURE_SELECTOR = 939740983698321109974372403944035053902509983902899284679678367046923648926;
 const INITIALIZE_SELECTOR = 215307247182100370520050591091822763712463273430149262739280891880522753123;
 
@@ -120,20 +119,12 @@ func __execute__{
 
     // TMP: Convert `AccountCallArray` to 'Call'.
     let (calls: Call*) = alloc();
-    _from_call_array_to_call(call_array_len, call_array, calldata, calls);
+    from_call_array_to_call(call_array_len, call_array, calldata, calls);
     let calls_len = call_array_len;
 
     // execute calls
     let (response: felt*) = alloc();
-    local response_len;
-    if (calls[0].selector - USE_PLUGIN_SELECTOR == 0) {
-        let (res) = _execute_list(calls_len - 1, calls + Call.SIZE, response);
-        assert response_len = res;
-    } else {
-        let (res) = _execute_list(calls_len, calls, response);
-        assert response_len = res;
-    }
-
+    let (response_len) = execute_list(calls_len, calls, response);
     // emit event
     transaction_executed.emit(
         hash=tx_info.transaction_hash, response_len=response_len, response=response
@@ -340,15 +331,20 @@ func assert_initialized{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 }
 
 func assert_correct_tx_version{syscall_ptr: felt*}(tx_version: felt) -> () {
-    with_attr error_message("argent: invalid tx version") {
+    with_attr error_message("Account: invalid tx version") {
         assert (tx_version - TRANSACTION_VERSION) * (tx_version - QUERY_VERSION) = 0;
     }
     return ();
 }
 
-func _execute_list{syscall_ptr: felt*}(calls_len: felt, calls: Call*, reponse: felt*) -> (
-    response_len: felt
-) {
+// @notice Executes a list of contract calls recursively.
+// @param calls_len The number of calls to execute
+// @param calls A pointer to the first call to execute
+// @param response The array of felt to pupulate with the returned data
+// @return response_len The size of the returned data
+func execute_list{syscall_ptr: felt*}(
+    calls_len: felt, calls: Call*, reponse: felt*
+) -> (response_len: felt) {
     alloc_locals;
 
     // if no more calls
@@ -364,16 +360,17 @@ func _execute_list{syscall_ptr: felt*}(calls_len: felt, calls: Call*, reponse: f
         calldata_size=this_call.calldata_len,
         calldata=this_call.calldata,
     );
+
     // copy the result in response
     memcpy(reponse, res.retdata, res.retdata_size);
     // do the next calls recursively
-    let (response_len) = _execute_list(
+    let (response_len) = execute_list(
         calls_len - 1, calls + Call.SIZE, reponse + res.retdata_size
     );
     return (response_len + res.retdata_size,);
 }
 
-func _from_call_array_to_call{syscall_ptr: felt*}(
+func from_call_array_to_call{syscall_ptr: felt*}(
     call_array_len: felt, call_array: AccountCallArray*, calldata: felt*, calls: Call*
 ) {
     // if no more calls
@@ -390,7 +387,7 @@ func _from_call_array_to_call{syscall_ptr: felt*}(
         );
 
     // parse the remaining calls recursively
-    _from_call_array_to_call(
+    from_call_array_to_call(
         call_array_len - 1, call_array + AccountCallArray.SIZE, calldata, calls + Call.SIZE
     );
     return ();
