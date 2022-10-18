@@ -64,11 +64,11 @@ func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 
     // check that we are not already initialized
     let (is_initialized) = Account_plugins.read(0);
-    with_attr error_message("already initialized") {
+    with_attr error_message("Account: already initialized") {
         assert is_initialized = 0;
     }
     // check that the target signer is not zero
-    with_attr error_message("signer cannot be null") {
+    with_attr error_message("Account: signer cannot be null") {
         assert_not_zero(plugin_id);
     }
 
@@ -108,7 +108,7 @@ func __execute__{
     alloc_locals;
 
     let (caller) = get_caller_address();
-    with_attr error_message("Account: Reentrant call") {
+    with_attr error_message("Account: reentrant call") {
         assert caller = 0;
     }
 
@@ -179,7 +179,7 @@ func addPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     assert_only_self();
 
     // add plugin
-    with_attr error_message("plugin cannot be null") {
+    with_attr error_message("Account: plugin cannot be null") {
         assert_not_zero(plugin);
     }
     Account_plugins.write(plugin, TRUE);

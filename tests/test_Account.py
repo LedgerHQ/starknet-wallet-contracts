@@ -137,7 +137,7 @@ async def test_account_takeover_with_reentrant_call(account_factory):
 
     await assert_revert(
         signer.send_transaction(account, attacker.contract_address, 'account_takeover', []),
-        reverted_with="Account: Reentrant call"
+        reverted_with="Account: reentrant call"
     )
 
 @pytest.mark.asyncio

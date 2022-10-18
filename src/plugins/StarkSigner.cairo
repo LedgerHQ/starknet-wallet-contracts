@@ -161,7 +161,7 @@ func is_valid_signature{
 }
 func assert_initialized{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     let (signer) = Account_public_key.read();
-    with_attr error_message("account not initialized") {
+    with_attr error_message("StarkSigner: account not initialized") {
         assert_not_zero(signer);
     }
     return ();
