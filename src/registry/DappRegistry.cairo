@@ -23,8 +23,8 @@ from starkware.starknet.common.syscalls import (
     get_block_timestamp,
 )
 
-// H('Session(key:felt,expires:felt,root:merkletree)')
-const AUTHORISATION_TYPE_HASH = 0x1aa0e1c56b45cf06a54534fa1707c54e520b842feb21d03b7deddb6f1e340c;
+// hash for uniqueness
+const AUTHORISATION_TYPE_HASH = 0xdcb14a7d75a00d5eab92f73224c1054cda01806e18e596fc0904683bca55a8;
 
 
 /////////////////////
@@ -67,40 +67,29 @@ func createRegistry{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
 
 @external
 func addDapp{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    registry_id: felt, dapp_address: felt
-) {
-    alloc_locals;
-    let (id) = hash2{hash_ptr=pedersen_ptr}(registry_id, dapp_address);
-    Registry_dapp.write(id, TRUE);
-    return ();
-}
-
-@external
-func toggleRegistry{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         registry_id: felt, dapp_address: felt, plugin_id: felt
-) -> (isValid: felt){
+) -> (){
     alloc_locals;
     let (tx_info) = get_tx_info();
 
     let hash_ptr = pedersen_ptr;
     with hash_ptr {
-        let (id) = hash_message(registry_id, tx_info.account_contract_address, dapp_address, plugin_id);
+        let (id) = hash_message(registry_id, dapp_address, plugin_id);
         let pedersen_ptr = hash_ptr;
     }   
     Registry_authorisations.write(id, TRUE);
-    let isValid = TRUE;
-    return (isValid=isValid);
+    return ();
 }
 
 @external
 func checkAuthorisation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-        registry_id: felt, account_contract_address: felt, dapp_address: felt, plugin_id: felt
+        registry_id: felt, dapp_address: felt, plugin_id: felt
 ) -> (isValid: felt){
     alloc_locals;
 
     let hash_ptr = pedersen_ptr;
     with hash_ptr {
-        let (id) = hash_message(registry_id, account_contract_address, dapp_address, plugin_id);
+        let (id) = hash_message(registry_id, dapp_address, plugin_id);
         let pedersen_ptr = hash_ptr;
     }
     let (isValid) = Registry_authorisations.read(id);
@@ -113,14 +102,13 @@ func checkAuthorisation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 /////////////////////
 
 func hash_message{hash_ptr: HashBuiltin*}(
-    registry_id: felt, account_contract_address:felt, dapp_address: felt, plugin_id: felt
+    registry_id: felt, dapp_address: felt, plugin_id: felt
 ) -> (
     hash: felt
 ) {
     let (hash_state) = hash_init();
     let (hash_state) = hash_update_single(hash_state_ptr=hash_state, item=AUTHORISATION_TYPE_HASH);
     let (hash_state) = hash_update_single(hash_state_ptr=hash_state, item=registry_id);
-    let (hash_state) = hash_update_single(hash_state_ptr=hash_state, item=account_contract_address);
     let (hash_state) = hash_update_single(hash_state_ptr=hash_state, item=dapp_address);
     let (hash_state) = hash_update_single(hash_state_ptr=hash_state, item=plugin_id);
     let (hash) = hash_finalize(hash_state_ptr=hash_state);

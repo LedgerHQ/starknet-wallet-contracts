@@ -18,6 +18,7 @@ from starkware.cairo.common.bool import TRUE, FALSE
 from openzeppelin.introspection.erc165.library import ERC165
 from openzeppelin.utils.constants.library import IACCOUNT_ID
 from src.plugins.IPlugin import IPlugin
+from src.registry.IDappRegistry import IDappRegistry
 from src.account.library import AccountCallArray, Call, TRANSACTION_VERSION, QUERY_VERSION
 
 /////////////////////
@@ -52,6 +53,14 @@ func Account_current_plugin() -> (res: felt) {
 func Account_plugins(plugin: felt) -> (res: felt) {
 }
 
+@storage_var
+func Account_registry_addr() -> (res: felt) {
+}
+
+@storage_var
+func Account_registry_id() -> (res: felt) {
+}
+
 /////////////////////
 // EXTERNAL FUNCTIONS
 /////////////////////
@@ -79,6 +88,8 @@ func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
     // plugin_id 0 is default plugin
     Account_plugins.write(0, plugin_id);
     Account_plugins.write(plugin_id, TRUE);
+    Account_registry_id.write(0);
+    Account_registry_addr.write(0);
 
     ERC165.register_interface(IACCOUNT_ID);
 
@@ -171,7 +182,7 @@ func __validate_declare__{
     return ();
 }
 
-// ##### PLUGIN #######
+////// PLUGIN //////
 
 @external
 func addPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) {
@@ -179,7 +190,7 @@ func addPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     assert_only_self();
 
     // add plugin
-    with_attr error_message("plugin cannot be null") {
+    with_attr error_message("Account: plugin cannot be null") {
         assert_not_zero(plugin);
     }
     Account_plugins.write(plugin, TRUE);
@@ -231,6 +242,38 @@ func validate_with_plugin{
     );
     return ();
 }
+
+/////////////////////
+// DAPP REGISTRY 
+/////////////////////
+
+@external
+func updateRegistry{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    registry_addr, registry_id: felt
+) {
+    // only called via execute
+    assert_only_self();
+
+    // add plugin
+    with_attr error_message("Account: Registry cannot be null") {
+        assert_not_zero(registry_addr);
+    }
+    Account_registry_addr.write(registry_addr);
+    Account_registry_id.write(registry_id);
+    return ();
+}
+
+@external
+func removeRegistry{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+) {
+    // only called via execute
+    assert_only_self();
+    // remove plugin
+    Account_registry_id.write(0);
+    Account_registry_addr.write(0);
+    return ();
+}
+
 
 /////////////////////
 // VIEW FUNCTIONS
@@ -342,7 +385,7 @@ func assert_correct_tx_version{syscall_ptr: felt*}(tx_version: felt) -> () {
 // @param calls A pointer to the first call to execute
 // @param response The array of felt to pupulate with the returned data
 // @return response_len The size of the returned data
-func execute_list{syscall_ptr: felt*}(
+func execute_list{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     calls_len: felt, calls: Call*, reponse: felt*
 ) -> (response_len: felt) {
     alloc_locals;
@@ -352,22 +395,52 @@ func execute_list{syscall_ptr: felt*}(
         return (0,);
     }
 
-    // do the current call
     let this_call: Call = [calls];
-    let res = call_contract(
-        contract_address=this_call.to,
-        function_selector=this_call.selector,
-        calldata_size=this_call.calldata_len,
-        calldata=this_call.calldata,
-    );
 
-    // copy the result in response
-    memcpy(reponse, res.retdata, res.retdata_size);
-    // do the next calls recursively
-    let (response_len) = execute_list(
-        calls_len - 1, calls + Call.SIZE, reponse + res.retdata_size
-    );
-    return (response_len + res.retdata_size,);
+    let (registry_addr) = Account_registry_addr.read();
+    if ( registry_addr != 0 ) {
+        let (plugin_id) = use_plugin();
+        let (registry_id) = Account_registry_id.read();
+        with_attr error_message("Account: not allowed by registry") {
+            let (isValid) = IDappRegistry.checkAuthorisation(
+                contract_address=registry_addr,
+                registry_id=registry_id, 
+                dapp_address=this_call.to, 
+                plugin_id=plugin_id
+            );
+            assert isValid = TRUE;
+        }
+        let res = call_contract(
+            contract_address=this_call.to,
+            function_selector=this_call.selector,
+            calldata_size=this_call.calldata_len,
+            calldata=this_call.calldata,
+        );
+
+        // copy the result in response
+        memcpy(reponse, res.retdata, res.retdata_size);
+        // do the next calls recursively
+        let (response_len) = execute_list(
+            calls_len - 1, calls + Call.SIZE, reponse + res.retdata_size
+        );
+        return (response_len + res.retdata_size,);
+    } else {
+        // do the current call
+        let res = call_contract(
+            contract_address=this_call.to,
+            function_selector=this_call.selector,
+            calldata_size=this_call.calldata_len,
+            calldata=this_call.calldata,
+        );
+
+        // copy the result in response
+        memcpy(reponse, res.retdata, res.retdata_size);
+        // do the next calls recursively
+        let (response_len) = execute_list(
+            calls_len - 1, calls + Call.SIZE, reponse + res.retdata_size
+        );
+        return (response_len + res.retdata_size,);
+    }
 }
 
 func from_call_array_to_call{syscall_ptr: felt*}(
