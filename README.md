@@ -52,3 +52,8 @@ nile compile src/account/Account.cairo
 ```
 pytest tests/*
 ```
+
+### Coverage
+```
+nile coverage -c src
+```
