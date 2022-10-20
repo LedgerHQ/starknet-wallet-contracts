@@ -79,8 +79,6 @@ func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 func validate{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ecdsa_ptr: SignatureBuiltin*, range_check_ptr, ec_op_ptr:EcOpBuiltin*
 }(
-    plugin_data_len: felt,
-    plugin_data: felt*,
     call_array_len: felt,
     call_array: CallArray*,
     calldata_len: felt,
@@ -96,8 +94,8 @@ func validate{
     // check if the tx is signed by the session key
     with_attr error_message("shnorr signature invalid") {
         let (flag_verif) = Verif_Musig2_all_xonly{hash_ptr=pedersen_ptr, ec_op_ptr2=ec_op_ptr}(
-            R=tx_info.signature[0],
-            s=tx_info.signature[1],
+            R=tx_info.signature[1],
+            s=tx_info.signature[2],
             KeyAgg=KeyAgg,
             message=tx_info.transaction_hash
         );

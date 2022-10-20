@@ -1,3 +1,5 @@
+import subprocess
+import logging
 from starkware.starknet.services.api.gateway.transaction import InvokeFunction
 from nile.signer import Signer, from_call_to_call_array, get_transaction_hash, TRANSACTION_VERSION
 from typing import Optional, List, Tuple
@@ -8,6 +10,8 @@ from starkware.starknet.services.api.gateway.transaction import InvokeFunction
 from starkware.starknet.business_logic.transaction.objects import InternalTransaction, TransactionExecutionInfo
 from utils.utils import to_uint
 import eth_keys
+
+LOGGER = logging.getLogger(__name__)
 
 class MockSigner():
     """
@@ -250,6 +254,63 @@ class PluginSigner():
 
     def sign(self, message_hash):
         return self.signer.sign(message_hash)
+
+class MockSchnorrSigner():
+
+    # Not usefull atm
+    def __init__(self, private_keys, keyAgg):
+        self.private_keys = private_keys
+        self.keyAgg = keyAgg
+
+    async def send_transaction(self, account, to, selector_name, calldata, nonce=None, max_fee=0):
+        return await self.send_transactions(account, [(to, selector_name, calldata)], nonce, max_fee)
+
+    async def send_transactions(self, account, plugin_id, calls, nonce=None, max_fee=0):
+        build_calls = []
+        for call in calls:
+            build_call = list(call)
+            build_call[0] = hex(build_call[0])
+            build_calls.append(build_call)
+
+        raw_invocation = get_raw_invoke(account, build_calls)
+        state = raw_invocation.state
+
+        if nonce is None:
+            nonce = await state.state.get_nonce_at(account.contract_address)
+
+        transaction_hash = get_transaction_hash(
+            prefix=TransactionHashPrefix.INVOKE,
+            account=account.contract_address,
+            calldata=raw_invocation.calldata,
+            nonce=nonce,
+            max_fee=max_fee
+        )
+        
+        p = subprocess.Popen(f'sage -c \'_MU=2;nb_users=4;size_message=1;private_keys={self.private_keys};message={[transaction_hash]};seed=0;load("./tests/utils/sage/musig2sign.sage")\' ', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        reslist = p.stdout.readlines()
+        for line in p.stdout.readlines():
+            LOGGER.critical(line)
+        sig_s = int(reslist.pop())
+        sig_r = int(reslist.pop())
+
+
+        external_tx = InvokeFunction(
+            contract_address=account.contract_address,
+            calldata=raw_invocation.calldata,
+            entry_point_selector=None,
+            signature=[plugin_id, sig_r, sig_s],
+            max_fee=max_fee,
+            version=TRANSACTION_VERSION,
+            nonce=nonce,
+        )
+
+        tx = InternalTransaction.from_external(
+            external_tx=external_tx, general_config=state.general_config
+        )
+
+        execution_info = await state.execute_tx(tx=tx)
+        # the hash and signature are returned for other tests to use
+        return execution_info, transaction_hash, [sig_r, sig_s]
 
 
 
