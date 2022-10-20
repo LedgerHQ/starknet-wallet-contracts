@@ -17,108 +17,81 @@ from starkware.cairo.common.bool import TRUE, FALSE
 
 from openzeppelin.introspection.erc165.library import ERC165
 from openzeppelin.utils.constants.library import IACCOUNT_ID
+from src.plugins.IPlugin import IPlugin
+from src.account.library import AccountCallArray, Call, TRANSACTION_VERSION, QUERY_VERSION
 
-@contract_interface
-namespace IPlugin {
-    // Method to call during validation
-    func validate(
-        plugin_data_len: felt,
-        plugin_data: felt*,
-        call_array_len: felt,
-        call_array: AccountCallArray*,
-        calldata_len: felt,
-        calldata: felt*,
-    ) {
-    }
-
-    // Method to write data during Init (delegate call)
-    func initialize(plugin_data_len: felt, plugin_data: felt*) {
-    }
-
-    // delegate this call to the default plugin
-    // this ocntract does not know its signer or signature scheme
-    func isValidSignature(hash: felt, signature_len: felt, signature: felt*) -> (is_valid: felt) {
-    }
-}
-
-//###################
+/////////////////////
 // CONSTANTS
-//###################
+/////////////////////
 
 const VERSION = '0.1.0';
-const USE_PLUGIN_SELECTOR = 1121675007639292412441492001821602921366030142137563176027248191276862353634;
+const IS_VALID_SIGNATURE_SELECTOR = 939740983698321109974372403944035053902509983902899284679678367046923648926;
+const INITIALIZE_SELECTOR = 215307247182100370520050591091822763712463273430149262739280891880522753123;
 
-//###################
-// STRUCTS
-//###################
-
-struct Call {
-    to: felt,
-    selector: felt,
-    calldata_len: felt,
-    calldata: felt*,
-}
-
-// Tmp struct introduced while we wait for Cairo
-// to support passing `[Call]` to __execute__
-struct AccountCallArray {
-    to: felt,
-    selector: felt,
-    data_offset: felt,
-    data_len: felt,
-}
-
-//###################
+/////////////////////
 // EVENTS
-//###################
+/////////////////////
+
+@event
+func account_created(account: felt) {
+}
 
 @event
 func transaction_executed(hash: felt, response_len: felt, response: felt*) {
 }
 
-//###################
+/////////////////////
 // STORAGE VARIABLES
-//###################
+/////////////////////
 
 @storage_var
 func Account_current_plugin() -> (res: felt) {
 }
 
 @storage_var
-func Account_default_plugin() -> (res: felt) {
-}
-
-@storage_var
 func Account_plugins(plugin: felt) -> (res: felt) {
 }
 
-//###################
+/////////////////////
 // EXTERNAL FUNCTIONS
-//###################
+/////////////////////
 
 @external
 func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    plugin_id: felt, plugin_data_len: felt, plugin_data: felt*
+    plugin_id: felt, plugin_calldata_len: felt, plugin_calldata: felt*
 ) {
     alloc_locals;
 
     // check that we are not already initialized
-    let (current_plugin) = Account_default_plugin.read();
-    with_attr error_message("already initialized") {
-        assert current_plugin = 0;
+    let (is_initialized) = Account_plugins.read(0);
+    with_attr error_message("Account: already initialized") {
+        assert is_initialized = 0;
     }
     // check that the target signer is not zero
-    with_attr error_message("signer cannot be null") {
+    with_attr error_message("Account: signer cannot be null") {
         assert_not_zero(plugin_id);
     }
 
-    // initialize the default plugin
-    IPlugin.library_call_initialize(
-        class_hash=plugin_id, plugin_data_len=plugin_data_len, plugin_data=plugin_data
+    if (plugin_calldata_len == 0) {
+        return ();
+    }
+
+    // plugin_id 0 is default plugin
+    Account_plugins.write(0, plugin_id);
+    Account_plugins.write(plugin_id, TRUE);
+
+    ERC165.register_interface(IACCOUNT_ID);
+
+    let (self) = get_contract_address();
+    account_created.emit(self);
+
+    library_call(
+        class_hash=plugin_id,
+        function_selector=INITIALIZE_SELECTOR,
+        calldata_size=plugin_calldata_len,
+        calldata=plugin_calldata,
     );
 
-    Account_default_plugin.write(plugin_id);
-    Account_plugins.write(plugin_id, 1);
     return ();
 }
 
@@ -135,28 +108,24 @@ func __execute__{
     alloc_locals;
 
     let (caller) = get_caller_address();
-    with_attr error_message("Account: no reentrant call") {
+    with_attr error_message("Account: reentrant call") {
         assert caller = 0;
     }
 
+    let (tx_info) = get_tx_info();
+
+    // block transaction with version != 1 or QUERY
+    assert_correct_tx_version(tx_info.version);
+
     // TMP: Convert `AccountCallArray` to 'Call'.
     let (calls: Call*) = alloc();
-    _from_call_array_to_call(call_array_len, call_array, calldata, calls);
+    from_call_array_to_call(call_array_len, call_array, calldata, calls);
     let calls_len = call_array_len;
 
     // execute calls
     let (response: felt*) = alloc();
-    local response_len;
-    if (calls[0].selector - USE_PLUGIN_SELECTOR == 0) {
-        let (res) = _execute_list(calls_len - 1, calls + Call.SIZE, response);
-        assert response_len = res;
-    } else {
-        let (res) = _execute_list(calls_len, calls, response);
-        assert response_len = res;
-    }
-
+    let (response_len) = execute_list(calls_len, calls, response);
     // emit event
-    let (tx_info) = get_tx_info();
     transaction_executed.emit(
         hash=tx_info.transaction_hash, response_len=response_len, response=response
     );
@@ -178,29 +147,9 @@ func __validate__{
     // make sure the account is initialized
     assert_initialized();
 
-    let (is_plugin, plugin_id, plugin_data_len, plugin_data) = usePlugin(
-        call_array_len, call_array, calldata_len, calldata
-    );
-    let (tx_info) = get_tx_info();
-
-    if (is_plugin == TRUE) {
-        Account_current_plugin.write(plugin_id);
-        validate_with_plugin(
-            plugin_id,
-            plugin_data_len,
-            plugin_data,
-            call_array_len - 1,
-            call_array + AccountCallArray.SIZE,
-            calldata_len,
-            calldata,
-        );
-        return ();
-    }
-
-    // validate transaction with default plugin
-    let (default_plugin) = Account_default_plugin.read();
+    let (plugin_id) = use_plugin();
     validate_with_plugin(
-        default_plugin, 0, plugin_data, call_array_len, call_array, calldata_len, calldata
+        plugin_id, call_array_len, call_array, calldata_len, calldata
     );
 
     return ();
@@ -230,10 +179,10 @@ func addPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     assert_only_self();
 
     // add plugin
-    with_attr error_message("plugin cannot be null") {
+    with_attr error_message("Account: plugin cannot be null") {
         assert_not_zero(plugin);
     }
-    Account_plugins.write(plugin, 1);
+    Account_plugins.write(plugin, TRUE);
     return ();
 }
 
@@ -242,7 +191,7 @@ func removePlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     // only called via execute
     assert_only_self();
     // remove plugin
-    Account_plugins.write(plugin, 0);
+    Account_plugins.write(plugin, FALSE);
     return ();
 }
 
@@ -262,20 +211,10 @@ func executeOnPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     return ();
 }
 
-@view
-func isPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) -> (
-    success: felt
-) {
-    let (res) = Account_plugins.read(plugin);
-    return (success=res);
-}
-
 func validate_with_plugin{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ecdsa_ptr: SignatureBuiltin*, range_check_ptr
 }(
     plugin_id: felt,
-    plugin_data_len: felt,
-    plugin_data: felt*,
     call_array_len: felt,
     call_array: AccountCallArray*,
     calldata_len: felt,
@@ -285,8 +224,6 @@ func validate_with_plugin{
 
     IPlugin.library_call_validate(
         class_hash=plugin_id,
-        plugin_data_len=plugin_data_len,
-        plugin_data=plugin_data,
         call_array_len=call_array_len,
         call_array=call_array,
         calldata_len=calldata_len,
@@ -295,45 +232,39 @@ func validate_with_plugin{
     return ();
 }
 
-func usePlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    call_array_len: felt, call_array: AccountCallArray*, calldata_len: felt, calldata: felt*
-) -> (is_plugin: felt, plugin_id: felt, plugin_data_len: felt, plugin_data: felt*) {
-    alloc_locals;
-
-    let (plugin_data: felt*) = alloc();
-    let res = is_not_zero(call_array[0].selector - USE_PLUGIN_SELECTOR);
-    if (res == 1) {
-        return (is_plugin=FALSE, plugin_id=0, plugin_data_len=0, plugin_data=plugin_data);
-    }
-    let plugin_id = calldata[call_array[0].data_offset];
-    // should this assert???
-    let (is_plugin) = Account_plugins.read(plugin_id);
-    memcpy(plugin_data, calldata + call_array[0].data_offset + 1, call_array[0].data_len - 1);
-    return (
-        is_plugin=is_plugin,
-        plugin_id=plugin_id,
-        plugin_data_len=call_array[0].data_len - 1,
-        plugin_data=plugin_data,
-    );
-}
-
-//###################
+/////////////////////
 // VIEW FUNCTIONS
-//###################
+/////////////////////
 
 @view
 func isValidSignature{
-    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
-}(hash: felt, signature_len: felt, signature: felt*) -> (is_valid: felt) {
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ecdsa_ptr: SignatureBuiltin*, range_check_ptr
+}(hash: felt, sig_len: felt, sig: felt*) -> (isValid: felt) {
     alloc_locals;
+    let (default_plugin) = Account_plugins.read(0);
 
-    let (default_plugin) = Account_default_plugin.read();
+    let (calldata: felt*) = alloc();
+    assert calldata[0] = hash;
+    assert calldata[1] = sig_len;
+    memcpy(calldata + 2, sig, sig_len);
 
-    IPlugin.library_call_isValidSignature(
-        class_hash=default_plugin, hash=hash, signature_len=signature_len, signature=signature
+    let (retdata_size: felt, retdata: felt*) = library_call(
+        class_hash=default_plugin,
+        function_selector=IS_VALID_SIGNATURE_SELECTOR,
+        calldata_size=2 + sig_len,
+        calldata=calldata,
     );
 
-    return (is_valid=TRUE);
+    assert retdata_size = 1;
+    return (isValid=retdata[0]);
+}
+
+@view
+func isPlugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(plugin: felt) -> (
+    success: felt
+) {
+    let (res) = Account_plugins.read(plugin);
+    return (success=res);
 }
 
 @view
@@ -363,9 +294,24 @@ func getVersion() -> (version: felt) {
     return (version=VERSION);
 }
 
-//###################
+/////////////////////
 // INTERNAL FUNCTIONS
-//###################
+/////////////////////
+
+func use_plugin{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (plugin_id: felt) {
+    alloc_locals;
+
+    let (tx_info) = get_tx_info();
+    let plugin_id = tx_info.signature[0];
+    let (is_plugin) = Account_plugins.read(plugin_id);
+
+    if (is_plugin == TRUE) {
+        return (plugin_id=plugin_id);
+    } else {
+        let (default_plugin) = Account_plugins.read(0);
+        return (plugin_id=default_plugin);
+    }
+}
 
 func assert_only_self{syscall_ptr: felt*}() -> () {
     let (self) = get_contract_address();
@@ -377,16 +323,28 @@ func assert_only_self{syscall_ptr: felt*}() -> () {
 }
 
 func assert_initialized{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-    let (signer) = Account_default_plugin.read();
+    let (signer) = Account_plugins.read(0);
     with_attr error_message("Account: not initialized") {
         assert_not_zero(signer);
     }
     return ();
 }
 
-func _execute_list{syscall_ptr: felt*}(calls_len: felt, calls: Call*, reponse: felt*) -> (
-    response_len: felt
-) {
+func assert_correct_tx_version{syscall_ptr: felt*}(tx_version: felt) -> () {
+    with_attr error_message("Account: invalid tx version") {
+        assert (tx_version - TRANSACTION_VERSION) * (tx_version - QUERY_VERSION) = 0;
+    }
+    return ();
+}
+
+// @notice Executes a list of contract calls recursively.
+// @param calls_len The number of calls to execute
+// @param calls A pointer to the first call to execute
+// @param response The array of felt to pupulate with the returned data
+// @return response_len The size of the returned data
+func execute_list{syscall_ptr: felt*}(
+    calls_len: felt, calls: Call*, reponse: felt*
+) -> (response_len: felt) {
     alloc_locals;
 
     // if no more calls
@@ -402,16 +360,17 @@ func _execute_list{syscall_ptr: felt*}(calls_len: felt, calls: Call*, reponse: f
         calldata_size=this_call.calldata_len,
         calldata=this_call.calldata,
     );
+
     // copy the result in response
     memcpy(reponse, res.retdata, res.retdata_size);
     // do the next calls recursively
-    let (response_len) = _execute_list(
+    let (response_len) = execute_list(
         calls_len - 1, calls + Call.SIZE, reponse + res.retdata_size
     );
     return (response_len + res.retdata_size,);
 }
 
-func _from_call_array_to_call{syscall_ptr: felt*}(
+func from_call_array_to_call{syscall_ptr: felt*}(
     call_array_len: felt, call_array: AccountCallArray*, calldata: felt*, calls: Call*
 ) {
     // if no more calls
@@ -428,7 +387,7 @@ func _from_call_array_to_call{syscall_ptr: felt*}(
         );
 
     // parse the remaining calls recursively
-    _from_call_array_to_call(
+    from_call_array_to_call(
         call_array_len - 1, call_array + AccountCallArray.SIZE, calldata, calls + Call.SIZE
     );
     return ();

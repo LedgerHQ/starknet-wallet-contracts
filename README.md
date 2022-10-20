@@ -26,6 +26,14 @@ source ./venv/bin/activate
 brew install gmp
 ```
 
+You might need this extra step if you are running on a Mac with the M1 chip
+
+```
+CFLAGS=-I`brew --prefix gmp`/include LDFLAGS=-L`brew --prefix gmp`/lib pip install ecdsa fastecdsa sympy
+```
+
+
+
 See for more details:
 - https://www.cairo-lang.org/docs/quickstart.html
 
@@ -37,7 +45,7 @@ pip install -r requirements.txt
 
 ### Compile the contracts
 ```
-nile compile src/Account.cairo
+nile compile src/account/Account.cairo
 ```
 
 ### Test the contracts
